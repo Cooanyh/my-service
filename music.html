@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<!-- (Defines language, enables Dark Mode by default) -->
+<html lang="zh" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- (Title from merge) -->
+    <title>Aether Player Pro</title>
+    <meta name="theme-color" content="#000000">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkFldGhlciBQbGF5ZXIiLAogICJzaG9ydF9uYW1lIjogIkFldGhlciIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMDAwMDAwIiwKICAidGhlbWVfY29sb3IiOiAiIzAwMDAwMCIiwKICAiaWNvbnMiOiBbXQp9">
+
+    <!-- Tailwind (JIT CDN) & Icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&amp;family=Orbitron:wght@500&amp;display=swap" rel="stylesheet">
+
+    <style>
+        /* --- Core Visual Definitions (from merge) --- */
+        :root {
+            --primary: #a78bfa;
+            --lyric-color: #a78bfa;
+            /* (FIX: Defaulting to dark glass) */
+            --glass-bg: rgba(18, 18, 18, 0.65); 
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --inactive-lyric: rgba(255, 255, 255, 0.35);
+            
+            --lyric-font-size: 1.1rem;
+            --lyric-font-size-active: 1.6rem;
+        }
+
+        /* (Light Mode styles) */
+        html.light {
+            /* (Light glass for main panel only) */
+            --glass-bg-light: rgba(255, 255, 255, 0.65);
+            --glass-border-light: rgba(0, 0, 0, 0.08);
+            --lyric-inactive-color: rgba(0, 0, 0, 0.4); 
+            color: #000;
+        }
+        /* (Dark Mode styles) */
+        html.dark {
+            --glass-bg: rgba(18, 18, 18, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --lyric-inactive-color: rgba(255, 255, 255, 0.35); 
+            color: #fff;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            /* (Apply light/dark bg) */
+            @apply bg-white dark:bg-black text-black dark:text-white;
+        }
+
+        /* Glass Panel Effect */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        
+        /* (Light mode override for LYRIC panel only) */
+        html.light .lyric-panel {
+            background: var(--glass-bg-light);
+            border: 1px solid var(--glass-border-light);
+        }
+
+        /* (myhkw UI Hiding - from winlyrics-video) */
+        #myhk_player_box, .music-player, #myhk_player {
+            display: none !important; opacity: 0 !important;
+            pointer-events: none !important; position: fixed; top: -9999px;
+        }
+        .switch-player { opacity: 0 !important; }
+
+        /* (Multi-line lyric styles) */
+        .lyrics-mask {
+            mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+        }
+
+        .lyric-line {
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform-origin: center center;
+            font-size: var(--lyric-font-size); 
+            line-height: 1.6;
+            color: var(--lyric-inactive-color);
+            opacity: 0.7;
+            padding: 4px 0;
+        }
+        .lyric-line.active {
+            font-size: var(--lyric-font-size-active); 
+            font-weight: 700;
+            color: var(--lyric-color, var(--primary)); 
+            text-shadow: 0 0 20px rgba(167, 139, 250, 0.4);
+            transform: scale(1.05);
+            opacity: 1;
+        }
+
+        /* Record spin animation */
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spin 20s linear infinite; }
+        .paused-spin { animation-play-state: paused; }
+
+        /* Progress Bar */
+        input[type=range] {
+            -webkit-appearance: none; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 14px; width: 14px;
+            border-radius: 50%; background: #fff;
+            margin-top: -5px; box-shadow: 0 0 10px rgba(255,255,255,0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]:active::-webkit-slider-thumb { transform: scale(1.3); }
+        
+        html.light input[type=range]::-webkit-slider-thumb { background: #333; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        html.light input[type=range]::-webkit-slider-runnable-track { background: rgba(0,0,0,0.2); }
+        html.dark input[type=range]::-webkit-slider-runnable-track { background: rgba(255,255,255,0.2); }
+
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Screensaver float */
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        .animate-float { animation: float 8s ease-in-out infinite; }
+        
+        /* (FIX 1: Font Readability) */
+        #song-title, #song-artist {
+            /* (FIX 2: Use dark shadow) */
+            text-shadow: 0 1px 5px rgba(0,0,0,0.8);
+        }
+        .font-mono { /* For seek times */
+             text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+        }
+
+        /* (FIX 3: Image Animation) */
+        @keyframes ken-burns {
+            0%, 100% { transform: scale(1.1) translate(0, 0); opacity: 1; }
+            50% { transform: scale(1.2) translate(5px, -5px); opacity: 1; }
+        }
+
+        /* (FIX 4: Custom Scrollbar) */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: var(--primary);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #c0aeff; /* Lighter primary */
+        }
+        /* (For dark panels) */
+        #drawer::-webkit-scrollbar-track,
+        #playlist-drawer::-webkit-scrollbar-track,
+        #lyrics-scroller::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+        }
+        #lyrics-scroller::-webkit-scrollbar-thumb {
+             background-color: rgba(255,255,255,0.3);
+        }
+        #lyrics-scroller::-webkit-scrollbar-thumb:hover {
+             background-color: rgba(255,255,255,0.5);
+        }
+
+        /* (FIX 1: Toggle Switch Styles) */
+        .toggle-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .toggle-switch input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+        .toggle-switch-bg {
+            position: relative;
+            width: 3.5rem; /* w-14 */
+            height: 1.75rem; /* h-7 */
+            background-color: #374151; /* bg-gray-700 */
+            border-radius: 9999px; /* rounded-full */
+            transition: background-color 0.3s;
+        }
+        input:checked + .toggle-switch-bg {
+            background-color: var(--primary); /* peer-checked:bg-primary */
+        }
+        .toggle-switch-dot {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            background-color: #fff; /* bg-white */
+            border-radius: 9999px; /* rounded-full */
+            height: 1.5rem; /* h-6 */
+            width: 1.5rem; /* w-6 */
+            transition: transform 0.3s;
+        }
+        input:checked + .toggle-switch-bg .toggle-switch-dot {
+            transform: translateX(1.75rem); /* translate-x-7 */
+        }
+        .toggle-switch-bg span {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.75rem; /* text-xs */
+            font-weight: 500; /* font-medium */
+            color: rgba(255,255,255,0.5); /* text-white/50 */
+            transition: color 0.3s;
+            user-select: none;
+        }
+        .toggle-switch-label-on { right: 0.4rem; } /* right-[7px] */
+        .toggle-switch-label-off { left: 0.4rem; color: #fff; } /* left-[7px] */
+        
+        input:checked + .toggle-switch-bg .toggle-switch-label-on { color: #fff; }
+        input:checked + .toggle-switch-bg .toggle-switch-label-off { color: rgba(255,255,255,0.5); }
+
+    </style>
+</head>
+<body class="h-screen w-screen relative bg-white dark:bg-black">
+
+    <div id="app" class="w-full h-full relative overflow-hidden">
+        <!-- 1. Background Layer -->
+        <div class="absolute inset-0 z-0">
+            <!-- (FIX 2: Removed loop attribute) -->
+            <video id="bg-video" class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 opacity-0" muted playsinline></video>
+            <img id="bg-image" class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 opacity-0" src="" alt="bg">
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+        </div>
+
+        <!-- 2. Main UI -->
+        <div id="main-ui" class="relative z-10 w-full h-full flex flex-col md:flex-row p-4 md:p-10 gap-6 transition-all duration-500">
+            
+            <!-- Left: Controls & Cover -->
+            <div class="flex-1 flex flex-col justify-center items-center text-center space-y-6 min-w-[300px]">
+                <!-- (Cover Art) -->
+                <div class="relative group w-[280px] h-[280px] md:w-[380px] md:h-[380px]">
+                    <div id="cover-container" class="w-full h-full rounded-full overflow-hidden border-4 border-white/5 shadow-2xl paused-spin animate-spin-slow relative z-10">
+                         <img id="cover-img" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800&q=80" class="w-full h-full object-cover" alt="Cover">
+                         <div class="absolute inset-0 m-auto w-8 h-8 bg-black/80 rounded-full border border-white/20 backdrop-blur-md"></div>
+                    </div>
+                </div>
+
+                <!-- (Song Info) -->
+                <div class="space-y-1 max-w-md w-full px-4">
+                    <!-- (FIX 2: Removed dark: text classes, added text-white) -->
+                    <h1 id="song-title" class="text-2xl md:text-4xl font-bold text-white drop-shadow-md truncate" data-lang="status_initializing">Initializing Player...</h1>
+                    <!-- (FIX 2: Removed dark: text classes, added text-gray-300) -->
+                    <p id="song-artist" class="text-base text-gray-300 font-light truncate" data-lang="status_wait_myhkw">Waiting for myhkw</p>
+                </div>
+
+                <!-- (Seek Bar) -->
+                <div class="w-full max-w-md space-y-2">
+                    <!-- (FIX 2: Removed dark: text classes, added text-gray-400) -->
+                    <div class="flex justify-between text-xs text-gray-400 font-mono px-1">
+                        <span id="time-current">00:00</span>
+                        <span id="time-total">00:00</span>
+                    </div>
+                    <input type="range" id="seek-bar" value="0" step="0.1" class="w-full cursor-pointer">
+                </div>
+
+                <!-- (Controls) -->
+                <div class="flex items-center justify-center gap-8 md:gap-10 w-full">
+                    <!-- (FIX 2: Removed dark: text classes, added text-gray-400) -->
+                    <button class="text-gray-400 hover:text-white transition" id="btn-prev"><i class="fas fa-step-backward text-2xl"></i></button>
+                    <!-- (This button correctly inverts with theme, no change) -->
+                    <button id="btn-play-main" class="w-16 h-16 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:scale-105 transition shadow-lg">
+                        <i class="fas fa-play text-xl ml-1"></i>
+                    </button>
+                    <!-- (FIX 2: Removed dark: text classes, added text-gray-400) -->
+                    <button class="text-gray-400 hover:text-white transition" id="btn-next"><i class="fas fa-step-forward text-2xl"></i></button>
+                </div>
+
+                <!-- (Bottom Links: Playlist + Settings) -->
+                <!-- (FIX 2: Kept text-gray-500 as requested "light gray") -->
+                <div class="flex gap-6 text-gray-500 text-sm">
+                     <button class="hover:text-primary transition flex items-center gap-2" onclick="openPlaylist()">
+                         <i class="fas fa-list-music"></i> <span data-lang="btn_playlist">Playlist</span>
+                     </button>
+                     <button class="hover:text-primary transition flex items-center gap-2" onclick="openDrawer()">
+                         <i class="fas fa-sliders-h"></i> <span data-lang="btn_settings">Settings</span>
+                     </button>
+                </div>
+            </div>
+
+            <!-- Right: Lyrics (Multi-line) -->
+            <!-- (Added "lyric-panel" class for light mode styling) -->
+            <div class="flex-1 h-[40vh] md:h-auto w-full glass-panel lyric-panel rounded-3xl overflow-hidden relative group">
+                <div id="lyrics-container" class="w-full h-full overflow-hidden lyrics-mask text-center relative">
+                    <div id="lyrics-scroller" class="w-full h-full overflow-y-auto hide-scrollbar scroll-smooth p-8">
+                        <div id="lyrics-content" class="transition-transform duration-500 ease-in-out">
+                            <p class="lyric-line" data-lang="status_wait_audio">等待音频加载...</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- (Font size buttons) -->
+                <div class="absolute bottom-4 right-4 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <button onclick="changeFontSize(-1)" class="w-8 h-8 rounded-full glass-panel flex items-center justify-center text-black dark:text-white hover:bg-white/20 dark:hover:bg-black/20"><i class="fas fa-minus text-xs"></i></button>
+                    <button onclick="changeFontSize(1)" class="w-8 h-8 rounded-full glass-panel flex items-center justify-center text-black dark:text-white hover:bg-white/20 dark:hover:bg-black/20"><i class="fas fa-plus text-xs"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Playlist Drawer (from Left) -->
+        <!-- (FIX: Forced dark bg, increased width) -->
+        <div id="playlist-drawer" class="absolute inset-y-0 left-0 w-full md:w-[480px] bg-[#121212]/90 backdrop-blur-md z-40 transform -translate-x-full transition-transform duration-300 shadow-2xl flex flex-col border-r border-white/10">
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-[#1a1a1a]/50">
+                <!-- (FIX: Forced white text) -->
+                <h2 class="text-lg font-bold text-white" data-lang="playlist_title">Cloud Playlist</h2>
+                <button onclick="closePlaylist()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"><i class="fas fa-times text-white"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                <div>
+                    <!-- (FIX: Increased font size) -->
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider" data-lang="playlist_albums">Albums</h3>
+                    <div id="album-list" class="space-y-1">
+                        <p class="text-xs text-gray-400" data-lang="status_wait_myhkw">Waiting for myhkw...</p>
+                    </div>
+                </div>
+                <div>
+                    <!-- (FIX: Increased font size) -->
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider" data-lang="playlist_tracks">Tracks</h3>
+                    <div id="song-list" class="space-y-1">
+                         <!-- (Tracks appear here) -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Settings Drawer (from Right) -->
+        <!-- (FIX: Forced dark bg) -->
+        <div id="drawer" class="absolute inset-y-0 right-0 w-full md:w-[420px] bg-[#121212]/90 backdrop-blur-md z-40 transform translate-x-full transition-transform duration-300 shadow-2xl flex flex-col border-l border-white/10">
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-[#1a1a1a]/50">
+                <!-- (FIX: Forced white text) -->
+                <h2 class="text-lg font-bold text-white" data-lang="settings_title">Control Panel</h2>
+                <button onclick="closeDrawer()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"><i class="fas fa-times text-white"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-8">
+                
+                <!-- (Display Settings) -->
+                <div>
+                    <!-- (FIX: Increased font size) -->
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider" data-lang="settings_display">Display</h3>
+                    
+                    <!-- (FIX 1: Language Toggle) -->
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_language">Language</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="lang-toggle">
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">ZH</span>
+                                <span class="toggle-switch-label-on">EN</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+                    <!-- (FIX 1: Theme Toggle) -->
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_theme">Theme</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="theme-toggle">
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off" data-lang="theme_dark_short">D</span>
+                                <span class="toggle-switch-label-on" data-lang="theme_light_short">L</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- (Primary Color) -->
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="color-primary" class="text-sm text-gray-300" data-lang="settings_primary_color">Theme Color</label>
+                        <input type="color" id="color-primary" value="#a78bfa" class="w-10 h-6 p-0 border-none rounded">
+                    </div>
+                    <!-- (Lyric Color) -->
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="color-lyric" class="text-sm text-gray-300" data-lang="settings_lyric_color">Lyric Color</label>
+                        <input type="color" id="color-lyric" value="#a78bfa" class="w-10 h-6 p-0 border-none rounded">
+                    </div>
+                </div>
+
+                <!-- Background Manager -->
+                <div>
+                    <!-- (FIX: Increased font size) -->
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider" data-lang="settings_bg">Background Import</h3>
+                    <div class="flex flex-col gap-2 mb-3">
+                        <input type="text" id="bg-input" data-lang-placeholder="placeholder_bg" placeholder="MP4 URL or JSON Gist Link" class="bg-black/20 border border-gray-700/50 rounded px-3 py-2 text-sm focus:border-primary outline-none text-white">
+                        <div class="flex gap-2">
+                            <button onclick="addBackgroundFromInput()" class="flex-1 text-black py-2 rounded font-bold text-xs hover:opacity-90" style="background-color: var(--primary);" data-lang="btn_import">Import Link</button>
+                            <button onclick="handlePaste()" class="flex-1 bg-gray-800 text-white py-2 rounded font-bold text-xs hover:bg-gray-700" data-lang="btn_paste">Paste</button>
+                        </div>
+                        <!-- (FIX 1: Added source attribution) -->
+                        <p class="text-[10px] text-gray-500" data-lang="settings_bg_hint">Supported: MP4, WebM, JPG, PNG, or Gist (JSON/Text). Default videos by 影视飓风-样片日记.</p>
+                    </div>
+                    <!-- (FIX 2 & 3: Added Toggles) -->
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_bg_random">Random Playback</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-random-bg">
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">OFF</span>
+                                <span class="toggle-switch-label-on">ON</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <label class="text-sm text-gray-300" data-lang="settings_bg_kenburns">Image Animation</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-kenburns" checked>
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">OFF</span>
+                                <span class="toggle-switch-label-on">ON</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+                    <div id="bg-grid" class="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto mt-4">
+                        <!-- (BG Previews Injected) -->
+                    </div>
+                </div>
+                
+                <!-- Local Playlist -->
+                <div>
+                    <!-- (FIX: Increased font size) -->
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider" data-lang="settings_local">Local / Direct Link</h3>
+                    <div class="space-y-2 text-xs text-gray-400 mb-2">
+                        <p data-lang="settings_local_hint">Local files will override the cloud player until refresh.</p>
+                    </div>
+                     <label class="w-full p-3 border border-dashed border-gray-600 rounded flex items-center justify-center cursor-pointer hover:bg-white/5 transition mb-2 text-gray-300">
+                        <i class="fas fa-music mr-2"></i> <span data-lang="btn_load_local">Load Local MP3</span>
+                        <input type="file" multiple accept="audio/*" class="hidden" onchange="handleFileImport(this)">
+                     </label>
+                     <div id="playlist-container" class="space-y-1 max-h-40 overflow-y-auto"></div>
+                </div>
+
+                <!-- (Reset) -->
+                <div class="pt-6 border-t border-gray-800">
+                    <button onclick="resetAll()" class="w-full py-3 bg-red-900/30 text-red-200 rounded text-xs hover:bg-red-900/50" data-lang="btn_reset">Reset App Data</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Screensaver (Zen Mode) -->
+        <div id="screensaver" class="absolute inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-1000">
+            <div class="text-center animate-float space-y-4">
+                <div id="ss-clock" class="text-[15vw] md:text-[10rem] leading-none font-['Orbitron'] font-bold text-white/90">00:00</div>
+                <div class="flex items-center justify-center gap-3 text-gray-400">
+                    <span id="ss-date">Date</span>
+                    <span class="w-1 h-1 bg-gray-600 rounded-full"></span>
+                    <span id="ss-lunar" class="text-primary">Lunar</span>
+                </div>
+                <div class="mt-8 text-white/80 text-lg" id="ss-status" data-lang="status_paused">Paused</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- State & Config ---
+        const state = {
+            // (FIX 1: Added default videos)
+            bgList: [
+                { type: 'video', url: 'https://upyun.coren.xin/corenxin/video/video01.mp4' },
+                { type: 'video', url: 'https://upyun.coren.xin/corenxin/video/video02.mp4' },
+                { type: 'video', url: 'https://upyun.coren.xin/corenxin/video/video03.mp4' }
+            ],
+            bgIndex: 0,
+            playlist: [],
+            localIndex: -1,
+            hooked: false,
+            // (FIX 2 & 3: Added state)
+            randomBg: false,
+            imageAnimation: true,
+            lang: {
+                en: {
+                    status_initializing: "Initializing Player...",
+                    status_wait_myhkw: "Waiting for myhkw",
+                    status_ready: "Ready to Play",
+                    status_engine_linked: "Engine Linked",
+                    status_wait_audio: "Waiting for audio...",
+                    status_paused: "Paused",
+                    lyrics_no_lyrics: "No lyrics for this song",
+                    lyrics_instrumental: "Instrumental",
+                    btn_playlist: "Playlist",
+                    btn_settings: "Settings",
+                    playlist_title: "Cloud Playlist",
+                    playlist_albums: "Albums",
+                    playlist_tracks: "Tracks",
+                    settings_title: "Control Panel",
+                    settings_display: "Display",
+                    settings_language: "Language",
+                    settings_theme: "Theme",
+                    theme_dark: "Dark",
+                    theme_light: "Light",
+                    // (FIX 1: Added short theme names)
+                    theme_dark_short: "D",
+                    theme_light_short: "L",
+                    settings_primary_color: "Theme Color",
+                    settings_lyric_color: "Lyric Color",
+                    settings_bg: "Background Import",
+                    placeholder_bg: "MP4 URL or JSON/Text Gist Link",
+                    btn_import: "Import Link",
+                    btn_paste: "Paste",
+                    // (FIX 1: Added source attribution)
+                    settings_bg_hint: "Supported: MP4, WebM, JPG, PNG, or Gist (JSON/Text). Default videos by 影视飓风-样片日记.",
+                    // (FIX 2 & 3: Added lang)
+                    settings_bg_random: "Random Playback",
+                    settings_bg_kenburns: "Image Animation",
+                    settings_local: "Local / Direct Link",
+                    settings_local_hint: "Local files will override the cloud player until refresh.",
+                    btn_load_local: "Load Local MP3",
+                    btn_reset: "Reset App Data",
+                    alert_gist_parse_fail: "Failed to parse Gist. Ensure it's a Raw URL containing JSON or line-by-line text URLs.",
+                    alert_gist_imported: "Imported {count} backgrounds from Gist.",
+                    alert_clipboard_fail: "Clipboard permission denied",
+                    alert_local_no_lyrics: "Local Music (No Lyrics)",
+                    alert_playlist_synced: "Playlist Synced",
+                    alert_playlist_fail: "Failed to sync playlist",
+                },
+                zh: {
+                    status_initializing: "播放器初始化中...",
+                    status_wait_myhkw: "等待 myhkw 加载",
+                    status_ready: "准备播放",
+                    status_engine_linked: "引擎已链接",
+                    status_wait_audio: "等待音频加载...",
+                    status_paused: "已暂停",
+                    lyrics_no_lyrics: "这首歌没有歌词",
+                    lyrics_instrumental: "纯音乐",
+                    btn_playlist: "播放列表",
+                    btn_settings: "设置",
+                    playlist_title: "云端播放列表",
+                    playlist_albums: "专辑列表",
+                    playlist_tracks: "曲目列表",
+                    settings_title: "控制面板",
+                    settings_display: "显示",
+                    settings_language: "语言",
+                    settings_theme: "主题",
+                    theme_dark: "深色",
+                    theme_light: "浅色",
+                    // (FIX 1: Added short theme names)
+                    theme_dark_short: "深",
+                    theme_light_short: "浅",
+                    settings_primary_color: "主题色",
+                    settings_lyric_color: "歌词高亮",
+                    settings_bg: "背景导入",
+                    placeholder_bg: "MP4 链接或 Gist 链接 (JSON/Text)",
+                    btn_import: "导入链接",
+                    btn_paste: "粘贴",
+                    // (FIX 1: Added source attribution)
+                    settings_bg_hint: "支持: MP4, WebM, JPG, PNG, 或 Gist (JSON/Text)。预置视频素材来自：影视飓风-样片日记。",
+                    // (FIX 2 & 3: Added lang)
+                    settings_bg_random: "随机播放",
+                    settings_bg_kenburns: "图片动画",
+                    settings_local: "本地 / 直链",
+                    settings_local_hint: "本地文件将覆盖云端播放器，直到刷新。",
+                    btn_load_local: "加载本地 MP3",
+                    btn_reset: "重置应用数据",
+                    alert_gist_parse_fail: "解析 Gist 失败。请确保是 Raw 链接，包含 JSON 或逐行 URL 文本。",
+                    alert_gist_imported: "从 Gist 导入了 {count} 个背景。",
+                    alert_clipboard_fail: "剪贴板权限被拒绝",
+                    alert_local_no_lyrics: "本地音乐 (无歌词)",
+                    alert_playlist_synced: "播放列表已同步",
+                    alert_playlist_fail: "同步播放列表失败",
+                }
+            }
+        };
+
+        const el = {
+            app: document.getElementById('app'),
+            video: document.getElementById('bg-video'),
+            image: document.getElementById('bg-image'),
+            title: document.getElementById('song-title'),
+            artist: document.getElementById('song-artist'),
+            progress: document.getElementById('seek-bar'),
+            currTime: document.getElementById('time-current'),
+            totalTime: document.getElementById('time-total'),
+            lyrics: document.getElementById('lyrics-container'),
+            lyricScroller: document.getElementById('lyrics-scroller'),
+            lyricContent: document.getElementById('lyrics-content'),
+            playBtn: document.getElementById('btn-play-main'),
+            coverContainer: document.getElementById('cover-container'),
+            coverImg: document.getElementById('cover-img'), 
+            drawer: document.getElementById('drawer'),
+            playlistDrawer: document.getElementById('playlist-drawer'),
+            albumList: document.getElementById('album-list'),
+            songList: document.getElementById('song-list'),
+            bgGrid: document.getElementById('bg-grid'),
+            ss: document.getElementById('screensaver'),
+            ssStatus: document.getElementById('ss-status'),
+            // (FIX 1: Updated element refs)
+            langToggle: document.getElementById('lang-toggle'),
+            themeToggle: document.getElementById('theme-toggle'),
+            colorPrimary: document.getElementById('color-primary'),
+            colorLyric: document.getElementById('color-lyric'),
+            // (FIX 2 & 3: Added elements)
+            toggleRandomBg: document.getElementById('toggle-random-bg'),
+            toggleKenburns: document.getElementById('toggle-kenburns'),
+        };
+
+        let audioObj = null; 
+        let activeLine = -1;
+        let idleTimer;
+        let initRetryTimer = null; 
+
+        let currentFontSize = 1.1; 
+        const FONT_SIZE_STEP = 0.1;
+        const MIN_FONT_SIZE = 0.5;
+        const MAX_FONT_SIZE = 2.0;
+
+        // --- Internationalization (i18n) ---
+        function setLanguage(lang) {
+            state.currentLang = lang;
+            localStorage.setItem('aether_lang', lang);
+            document.documentElement.lang = lang;
+            const elements = document.querySelectorAll('[data-lang]');
+            elements.forEach(el => {
+                const key = el.getAttribute('data-lang');
+                if (state.lang[lang][key]) {
+                    el.innerText = state.lang[lang][key];
+                }
+            });
+            const placeholders = document.querySelectorAll('[data-lang-placeholder]');
+            placeholders.forEach(el => {
+                const key = el.getAttribute('data-lang-placeholder');
+                if (state.lang[lang][key]) {
+                    el.placeholder = state.lang[lang][key];
+                }
+            });
+        }
+        
+        function t(key, replacements = {}) {
+            let text = state.lang[state.currentLang]?.[key] || state.lang.en[key] || key;
+            for (const [rKey, rValue] of Object.entries(replacements)) {
+                text = text.replace(`{${rKey}}`, rValue);
+            }
+            return text;
+        }
+
+        // --- Theme & Color ---
+        function setTheme(theme) {
+            localStorage.setItem('aether_theme', theme);
+            if (theme === 'light') {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+            } else {
+                document.documentElement.classList.remove('light');
+                document.documentElement.classList.add('dark');
+            }
+        }
+        function setPrimaryColor(color) {
+            localStorage.setItem('aether_primary_color', color);
+            document.documentElement.style.setProperty('--primary', color);
+        }
+        function setLyricColor(color) {
+            localStorage.setItem('aether_lyric_color', color);
+            document.documentElement.style.setProperty('--lyric-color', color);
+        }
+        
+        function changeFontSize(direction) {
+            currentFontSize += (direction * FONT_SIZE_STEP);
+            if (currentFontSize < MIN_FONT_SIZE) currentFontSize = MIN_FONT_SIZE;
+            if (currentFontSize > MAX_FONT_SIZE) currentFontSize = MAX_FONT_SIZE;
+            
+            let activeFontSize = currentFontSize + 0.5; 
+
+            document.documentElement.style.setProperty('--lyric-font-size', `${currentFontSize}rem`);
+            document.documentElement.style.setProperty('--lyric-font-size-active', `${activeFontSize}rem`);
+            
+            localStorage.setItem('aether_font_size', currentFontSize);
+        }
+
+        // --- Initialization ---
+        window.onload = () => {
+            const savedLang = localStorage.getItem('aether_lang') || 'zh';
+            state.currentLang = savedLang;
+            // (FIX 1: Set toggle state)
+            el.langToggle.checked = (savedLang === 'en');
+            setLanguage(savedLang);
+
+            const savedTheme = localStorage.getItem('aether_theme') || 'dark';
+            // (FIX 1: Set toggle state)
+            el.themeToggle.checked = (savedTheme === 'light');
+            setTheme(savedTheme);
+
+            const savedPrimaryColor = localStorage.getItem('aether_primary_color') || '#a78bfa';
+            el.colorPrimary.value = savedPrimaryColor;
+            setPrimaryColor(savedPrimaryColor);
+
+            const savedLyricColor = localStorage.getItem('aether_lyric_color') || '#a78bfa';
+            el.colorLyric.value = savedLyricColor;
+            setLyricColor(savedLyricColor);
+
+            const savedFontSize = localStorage.getItem('aether_font_size');
+            if (savedFontSize) {
+                currentFontSize = parseFloat(savedFontSize);
+                document.documentElement.style.setProperty('--lyric-font-size', `${currentFontSize}rem`);
+                document.documentElement.style.setProperty('--lyric-font-size-active', `${currentFontSize + 0.5}rem`);
+            }
+
+            // (FIX 1: Bind new toggles)
+            el.langToggle.onchange = (e) => setLanguage(e.target.checked ? 'en' : 'zh');
+            el.themeToggle.onchange = (e) => setTheme(e.target.checked ? 'light' : 'dark');
+            el.colorPrimary.oninput = (e) => setPrimaryColor(e.target.value);
+            el.colorLyric.oninput = (e) => setLyricColor(e.target.value);
+            
+            // (FIX 2 & 3: Bind new toggles)
+            el.toggleRandomBg.onchange = (e) => {
+                state.randomBg = e.target.checked;
+                saveSettings(); // Save this new state
+            };
+            el.toggleKenburns.onchange = (e) => {
+                state.imageAnimation = e.target.checked;
+                saveSettings();
+                // (Immediately apply/remove animation if an image is showing)
+                if (el.image.classList.contains('opacity-0')) return; // Only if image is active
+                el.image.style.animation = state.imageAnimation ? 'ken-burns 25s ease-in-out infinite' : 'none';
+            };
+
+            loadSettings(); // (Load BG, Random, Animation settings)
+            updateBg();
+            renderBgGrid();
+            initClock();
+            
+            initializePlayerIntegration(); 
+
+            // (FIX 2: Add ended listener for bg video)
+            el.video.addEventListener('ended', updateBg); 
+
+            document.addEventListener('mousemove', resetIdle);
+            document.addEventListener('click', resetIdle);
+            document.addEventListener('touchstart', resetIdle);
+            resetIdle();
+        };
+
+        // --- Audio Engine Hook (from winlyrics-video) ---
+        function initializePlayerIntegration() {
+            const audioReady = document.getElementById('myhkaudio');
+            const coverReady = document.querySelector('.myhkcover img');
+            const controlsReady = document.querySelector('.myhkprev') && document.querySelector('.myhknext');
+            const lyricSwitchReady = document.querySelector('.switch-ksclrc'); 
+            const playlistReady = document.querySelector('.myhkplaylist'); 
+
+            if (audioReady && coverReady && controlsReady && lyricSwitchReady && playlistReady) {
+                console.log("Aether: Audio Engine Hooked Successfully.");
+                if (initRetryTimer) clearTimeout(initRetryTimer);
+                audioObj = audioReady;
+                initAudioListeners();
+            } else {
+                if (initRetryTimer) clearTimeout(initRetryTimer);
+                initRetryTimer = setTimeout(initializePlayerIntegration, 500);
+            }
+        }
+
+        function initAudioListeners() {
+            state.hooked = true;
+            el.title.innerText = t('status_ready');
+            el.artist.innerText = t('status_engine_linked');
+
+            el.playBtn.onclick = togglePlay;
+            document.getElementById('btn-prev').onclick = () => {
+                if(state.localIndex > -1) playLocal(-1);
+                else document.querySelector('.myhkprev')?.click(); 
+            };
+            document.getElementById('btn-next').onclick = () => {
+                if(state.localIndex > -1) playLocal(1);
+                else document.querySelector('.myhknext')?.click(); 
+            };
+
+            el.progress.addEventListener('input', (e) => {
+                if (audioObj) audioObj.currentTime = e.target.value;
+            });
+
+            audioObj.addEventListener('play', updatePlayState);
+            audioObj.addEventListener('pause', updatePlayState);
+            audioObj.addEventListener('timeupdate', onTimeUpdate);
+            audioObj.addEventListener('ended', () => {
+                if(state.localIndex > -1) playLocal(1);
+            });
+            audioObj.addEventListener('emptied', () => {
+                el.title.innerText = t('status_wait_audio');
+                el.artist.innerText = "...";
+                showLyricPlaceholder(t('status_wait_audio'));
+                setTimeout(updateSongInfo, 500); 
+            });
+
+            updateSongInfo();
+            updatePlayState();
+            syncPlaylist();
+            setTimeout(turnOffPlayerInternalLyrics, 1000); 
+        }
+
+        function onTimeUpdate() {
+            if (!audioObj) return;
+            const t = audioObj.currentTime;
+            const d = audioObj.duration || 0;
+            if (isNaN(d) || d === 0) return;
+
+            el.progress.max = d;
+            el.progress.value = t;
+            el.currTime.innerText = formatTime(t);
+            el.totalTime.innerText = formatTime(d);
+            
+            updateSongInfo(); 
+            syncLyrics(t);
+        }
+
+        function togglePlay() {
+            if (!audioObj) return;
+            if (audioObj.paused) audioObj.play();
+            else audioObj.pause();
+        }
+
+        function updatePlayState() {
+            if (!audioObj) return;
+            const isPlaying = !audioObj.paused;
+            const icon = el.playBtn.querySelector('i');
+            icon.className = isPlaying ? "fas fa-pause text-xl" : "fas fa-play text-xl ml-1";
+            if (isPlaying) el.coverContainer.classList.remove('paused-spin');
+            else el.coverContainer.classList.add('paused-spin');
+            
+            el.ssStatus.innerText = isPlaying ? t('status_ready') : t('status_paused');
+        }
+
+        // --- (Data Scraping Functions) ---
+
+        function updateSongInfo() {
+            if (state.localIndex > -1) return; 
+
+            try {
+                const coverSrc = document.querySelector('.myhkcover img')?.src;
+                const titleText = document.querySelector('.myhksong span')?.innerText;
+                const artistText = document.querySelector('.myhkartist span')?.innerText;
+
+                if (coverSrc && el.coverImg.src !== coverSrc) {
+                    el.coverImg.src = coverSrc;
+                }
+                if (titleText && el.title.innerText !== titleText) {
+                    el.title.innerText = titleText;
+                }
+                if (artistText && el.artist.innerText !== artistText) {
+                    el.artist.innerText = artistText;
+                }
+            } catch (e) {
+                console.warn("Error updating song info:", e);
+            }
+        }
+
+        function turnOffPlayerInternalLyrics() {
+            try {
+                const lyricSwitch = document.querySelector('.switch-ksclrc');
+                const icon = lyricSwitch?.querySelector('i');
+                if (icon && icon.classList.contains('myhkicon-anniu_kaiqi')) {
+                    lyricSwitch.click();
+                }
+            } catch (e) {
+                console.warn("Error turning off internal lyrics:", e);
+            }
+        }
+
+        // --- (Playlist Syncing) ---
+        function syncPlaylist() {
+            try {
+                el.albumList.innerHTML = '';
+                el.songList.innerHTML = '';
+                
+                const albumNodes = document.querySelectorAll('.myhkplaylist .album-list ul li');
+                albumNodes.forEach((node, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'p-3 rounded-lg cursor-pointer transition-all duration-200 border border-transparent text-base hover:bg-white/10 hover:border-white/20 text-gray-200';
+                    if (node.classList.contains('myhknow')) {
+                        item.className += ' font-bold bg-white/20';
+                        item.style.color = 'var(--primary)';
+                    }
+                    item.innerText = node.innerText.replace("当前播放 > ", "");
+                    item.onclick = () => {
+                        node.click();
+                        setTimeout(syncPlaylist, 500);
+                    };
+                    el.albumList.appendChild(item);
+                });
+
+                const songNodes = document.querySelectorAll('.myhkplaylist .song-list ul li');
+                songNodes.forEach((node, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'p-3 rounded-lg cursor-pointer transition-all duration-200 border border-transparent text-base hover:bg-white/10 hover:border-white/20 text-gray-200';
+                    if (node.classList.contains('myhknow')) {
+                        item.className += ' font-bold bg-white/20';
+                        item.style.color = 'var(--primary)';
+                    }
+                    item.innerText = node.innerText;
+                    item.onclick = () => {
+                        node.click();
+                        closePlaylist();
+                    };
+                    el.songList.appendChild(item);
+                });
+                
+                console.log(t('alert_playlist_synced'));
+            } catch (e) {
+                console.error("Playlist sync failed:", e);
+                el.albumList.innerHTML = `<p class="text-xs text-red-500">${t('alert_playlist_fail')}</p>`;
+            }
+        }
+
+        // --- Local Playlist Logic ---
+        function handleFileImport(input) {
+            Array.from(input.files).forEach(f => {
+                state.playlist.push({
+                    name: f.name.replace(/\.[^/.]+$/, ""),
+                    url: URL.createObjectURL(f),
+                    lrc: "" 
+                });
+            });
+            renderPlaylist();
+            if(state.playlist.length > 0) playLocal(0, true); 
+        }
+
+        function playLocal(idxOffset, absolute = false) {
+            if(state.playlist.length === 0) return;
+            
+            let newIdx = absolute ? idxOffset : state.localIndex + idxOffset;
+            if (newIdx >= state.playlist.length) newIdx = 0;
+            if (newIdx < 0) newIdx = state.playlist.length - 1;
+            
+            state.localIndex = newIdx;
+            const track = state.playlist[newIdx];
+            
+            audioObj.src = track.url;
+            el.title.innerText = track.name;
+            el.artist.innerText = "Local File";
+            el.coverImg.src = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800&q=80"; 
+            audioObj.play();
+            
+            showLyricPlaceholder(t('alert_local_no_lyrics'));
+        }
+
+        function renderPlaylist() {
+            const c = document.getElementById('playlist-container');
+            c.innerHTML = '';
+            state.playlist.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = "p-2 bg-white/5 rounded text-xs flex justify-between cursor-pointer hover:bg-white/10 text-gray-200";
+                div.innerText = p.name;
+                div.onclick = () => playLocal(i, true);
+                c.appendChild(div);
+            });
+        }
+
+        // --- Background Logic (Gist/Text Support) ---
+        async function addBackgroundFromInput() {
+            const val = document.getElementById('bg-input').value.trim();
+            if (!val) return;
+            
+            try {
+                const res = await fetch(val);
+                const text = await res.text();
+                let urls = [];
+                
+                try {
+                    const data = JSON.parse(text);
+                    if (Array.isArray(data)) {
+                        urls = data.map(item => (typeof item === 'object' ? item.url : item)).filter(Boolean);
+                    }
+                } catch (e) {
+                    urls = text.split('\n').map(line => line.trim()).filter(line => line.startsWith('http'));
+                }
+
+                if (urls.length > 0) {
+                    urls.forEach(url => processBgUrl(url));
+                    alert(t('alert_gist_imported', {count: urls.length}));
+                } else {
+                    processBgUrl(val);
+                }
+
+            } catch (e) {
+                processBgUrl(val);
+            }
+            
+            document.getElementById('bg-input').value = '';
+            renderBgGrid();
+            saveSettings();
+        }
+
+
+        function processBgUrl(url) {
+            if (!url || state.bgList.some(bg => bg.url === url)) return;
+            const isVideo = url.match(/\.(mp4|webm)(\?|$)/i) != null;
+            state.bgList.push({ type: isVideo ? 'video' : 'image', url: url });
+        }
+
+        async function handlePaste() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('bg-input').value = text;
+                addBackgroundFromInput();
+            } catch(e) { alert(t('alert_clipboard_fail')); }
+        }
+
+        // (FIX 2 & 3: Updated updateBg function)
+        function updateBg() {
+            if (state.bgList.length === 0) return;
+
+            // (Query 2: Random/Sequential Logic)
+            if (state.randomBg) {
+                let newIndex = state.bgIndex;
+                if (state.bgList.length > 1) {
+                    while (newIndex === state.bgIndex) {
+                        newIndex = Math.floor(Math.random() * state.bgList.length);
+                    }
+                }
+                state.bgIndex = newIndex;
+            } else {
+                // (Normal sequential logic)
+                state.bgIndex = (state.bgIndex + 1) % state.bgList.length;
+            }
+            
+            if (state.bgIndex >= state.bgList.length || state.bgIndex < 0) {
+                state.bgIndex = 0; // (Safety check)
+            }
+            
+            const bg = state.bgList[state.bgIndex];
+            
+            if (bg.type === 'video') {
+                el.image.classList.add('opacity-0');
+                el.image.style.animation = 'none'; // (Query 3: Stop animation)
+                el.video.src = bg.url;
+                el.video.play().catch(e => console.log("Video autoplay blocked"));
+                el.video.classList.remove('opacity-0');
+            } else {
+                el.video.classList.add('opacity-0');
+                el.video.pause(); // (Pause video)
+                el.image.src = bg.url;
+                // (Query 3: Apply animation based on state)
+                el.image.style.animation = state.imageAnimation ? 'ken-burns 25s ease-in-out infinite' : 'none';
+                el.image.classList.remove('opacity-0');
+            }
+            // (Update grid selection)
+            renderBgGrid();
+            saveSettings(); // (Save the new index)
+        }
+
+
+        function renderBgGrid() {
+            el.bgGrid.innerHTML = '';
+            state.bgList.forEach((bg, i) => {
+                const div = document.createElement('div');
+                div.className = `aspect-video relative rounded overflow-hidden border cursor-pointer ${i === state.bgIndex ? 'border-primary' : 'border-gray-700/50'}`;
+                
+                if (bg.type === 'video') {
+                    const videoThumb = document.createElement('video');
+                    videoThumb.src = bg.url + "#t=1.0"; 
+                    videoThumb.className = "w-full h-full object-cover";
+                    videoThumb.preload = "metadata";
+                    div.appendChild(videoThumb);
+                } else {
+                    div.innerHTML = `<img src="${bg.url}" class="w-full h-full object-cover">`;
+                }
+                
+                const btn = document.createElement('button');
+                btn.className = "absolute top-0 right-0 bg-red-600 text-white w-5 h-5 flex items-center justify-center text-[10px]";
+                btn.innerHTML = '<i class="fas fa-times"></i>';
+                btn.onclick = (e) => { e.stopPropagation(); state.bgList.splice(i, 1); renderBgGrid(); saveSettings(); };
+                
+                // (FIX: Modified click handler)
+                div.onclick = () => { 
+                    state.bgIndex = i; 
+                    // (FIX 2: Call updateBg with specific index)
+                    // We must decrement index first because updateBg increments it
+                    state.bgIndex = (i - 1 + state.bgList.length) % state.bgList.length;
+                    updateBg();
+                };
+                div.appendChild(btn);
+                el.bgGrid.appendChild(div);
+            });
+        }
+
+        // --- (Multi-Line Lyrics Logic) ---
+        function showLyricPlaceholder(langKey) {
+            el.lyricContent.innerHTML = `<p class="lyric-line active" style="font-size: 1.2rem;">${t(langKey)}</p>`;
+            el.lyricContent.style.transform = 'translateY(0)';
+            el.lyrics.dataset.liCount = "0";
+            activeLine = -1;
+        }
+
+        function rebuildLyrics(allLIs) {
+            el.lyricContent.innerHTML = '';
+            allLIs.forEach((li, index) => {
+                const line = document.createElement('p');
+                line.className = 'lyric-line';
+                line.dataset.index = index;
+                let text = li.innerText.trim();
+                if (text.includes("纯音乐") || text.includes("Instrumental")) text = t('lyrics_instrumental');
+                line.innerText = text;
+                el.lyricContent.appendChild(line);
+            });
+            el.lyrics.dataset.liCount = allLIs.length;
+            activeLine = -1; 
+        }
+
+        function syncLyrics() {
+            const allLIs = Array.from(document.querySelectorAll('#myhkLrc li'));
+            const liCount = allLIs.length;
+
+            if (liCount === 0) {
+                if (el.lyrics.dataset.liCount !== "0") {
+                    showLyricPlaceholder(audioObj.paused ? 'status_paused' : 'lyrics_no_lyrics');
+                }
+                return;
+            }
+
+            if (el.lyrics.dataset.liCount != liCount) {
+                rebuildLyrics(allLIs);
+            }
+
+            let newActiveIndex = -1;
+            const activeLi = document.querySelector('#myhkLrc li.myhknow');
+            if (activeLi) {
+                newActiveIndex = allLIs.indexOf(activeLi);
+            }
+
+            if (newActiveIndex !== activeLine) {
+                activeLine = newActiveIndex;
+                
+                const allLines = el.lyricContent.querySelectorAll('.lyric-line');
+                allLines.forEach((line, index) => {
+                    if (index === activeLine) {
+                        line.classList.add('active');
+                        const scrollerRect = el.lyricScroller.getBoundingClientRect();
+                        const lineRect = line.getBoundingClientRect();
+                        const offset = (lineRect.top - scrollerRect.top) - (scrollerRect.height / 2) + (lineRect.height / 2) + el.lyricScroller.scrollTop;
+                        el.lyricScroller.scrollTo({ top: offset, behavior: 'smooth' });
+                    } else {
+                        line.classList.remove('active');
+                    }
+                });
+            }
+        }
+        
+        // --- Utils ---
+        function formatTime(s) {
+            if(isNaN(s)) return "00:00";
+            return new Date(s * 1000).toISOString().substr(14, 5);
+        }
+
+        function openDrawer() { el.drawer.classList.remove('translate-x-full'); }
+        function closeDrawer() { el.drawer.classList.add('translate-x-full'); }
+        function openPlaylist() { el.playlistDrawer.classList.remove('-translate-x-full'); syncPlaylist(); }
+        function closePlaylist() { el.playlistDrawer.classList.add('-translate-x-full'); }
+
+
+        function resetIdle() {
+            el.ss.classList.remove('opacity-100', 'pointer-events-auto');
+            el.ss.classList.add('opacity-0', 'pointer-events-none');
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                el.ss.classList.remove('opacity-0', 'pointer-events-none');
+                el.ss.classList.add('opacity-100', 'pointer-events-auto');
+            }, 60000);
+        }
+
+        function initClock() {
+            const update = () => {
+                const now = new Date();
+                document.getElementById('ss-clock').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+                document.getElementById('ss-date').innerText = now.toLocaleDateString('zh-CN', {month:'short', day:'numeric', weekday:'long'});
+                try {
+                    if(window.Intl) {
+                        const lunar = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', {dateStyle: 'full'}).format(now);
+                        document.getElementById('ss-lunar').innerText = lunar.split('年')[1] || "";
+                    }
+                } catch (e) { /* (iOS Intl can be buggy) */ }
+            };
+            setInterval(update, 1000);
+            update();
+        }
+
+        // (FIX 2 & 3: Updated save/load functions)
+        function saveSettings() {
+            localStorage.setItem('aether_v3_settings', JSON.stringify({ 
+                bgList: state.bgList,
+                randomBg: state.randomBg,
+                imageAnimation: state.imageAnimation,
+                bgIndex: state.bgIndex // (Save index too)
+            }));
+        }
+        function loadSettings() {
+            const d = localStorage.getItem('aether_v3_settings');
+            if(!d) return;
+            const p = JSON.parse(d);
+            // (FIX 1: Only load user-added, keep defaults)
+            if (p.bgList && p.bgList.length > 3) {
+                 // (Filter out the defaults if they were somehow saved)
+                 const userList = p.bgList.filter(item => 
+                    !item.url.includes('upyun.coren.xin/corenxin/video/video0')
+                 );
+                 state.bgList = [...state.bgList, ...userList];
+            }
+            if (p.randomBg) {
+                state.randomBg = p.randomBg;
+                el.toggleRandomBg.checked = p.randomBg;
+            }
+            if (p.imageAnimation !== undefined) { // (Check for undefined, as it could be false)
+                state.imageAnimation = p.imageAnimation;
+                el.toggleKenburns.checked = p.imageAnimation;
+            }
+            // (FIX 2: Load index but don't auto-increment)
+            if (p.bgIndex) state.bgIndex = (p.bgIndex - 1 + state.bgList.length) % state.bgList.length;
+        }
+        function resetAll() { 
+            localStorage.clear(); 
+            location.reload(); 
+        }
+
+    </script>
+    
+    <!-- (Myhkw Player Engine) -->
+    <script type="text/javascript" id="myhk" src="https://myhkw.cn/api/player/1746320559107" key="1746320559107" m="1"></script>
+</body>
+</html>
