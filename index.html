@@ -2,13 +2,56 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>跳转至 coren.xin</title>
-  <meta http-equiv="refresh" content="0; URL=https://coren.xin/">
+  <title>正在跳转到 coren.xin</title>
+  <meta http-equiv="refresh" content="1; URL=https://coren.xin/">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #111;
+      font-family: "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    }
+    .msg {
+      text-align: center;
+    }
+    .msg h2 {
+      font-size: 2.8rem;
+      font-weight: 700;
+      margin: 0 0 0.5em 0;
+      letter-spacing: -0.01em;
+      color: #111;
+    }
+    .msg p, .msg a {
+      font-size: 1.4rem;
+      color: #111;
+      font-weight: 400;
+      margin: 0.4em 0 0 0;
+      text-decoration: none;
+    }
+    .msg a:hover {
+      text-decoration: underline;
+    }
+  </style>
   <script>
-    window.location.href = "https://coren.xin/";
+    setTimeout(function() {
+      window.location.href = "https://coren.xin/";
+    }, 1000);
   </script>
 </head>
 <body>
-  如果未跳转，请<a href="https://coren.xin/">点击这里访问 coren.xin</a>。
+  <div class="msg">
+    <h2>正在跳转至 coren.xin</h2>
+    <p>页面即将自动跳转…</p>
+    <p>如未跳转，<a href="https://coren.xin/">请点击此处跳转 COREN.XIN </a></p>
+    <p>或直接访问：www.coren.xin</p>
+  </div>
 </body>
 </html>
