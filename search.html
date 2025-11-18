@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Service Index</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: #f6f8fa; /* GitHub 风格背景灰 */
+            color: #24292f;
+        }
+        h1 {
+            border-bottom: 1px solid #d0d7de;
+            padding-bottom: 10px;
+            font-size: 1.5em;
+        }
+        #file-list {
+            list-style: none;
+            padding: 0;
+            background: white;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        #file-list li {
+            border-bottom: 1px solid #d0d7de;
+        }
+        #file-list li:last-child {
+            border-bottom: none;
+        }
+        #file-list a {
+            display: block;
+            padding: 12px 16px;
+            text-decoration: none;
+            color: #0969da;
+            transition: background 0.2s;
+        }
+        #file-list a:hover {
+            background-color: #f3f4f6;
+            text-decoration: underline;
+        }
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+        .error {
+            color: #cf222e;
+            background: #ffebe9;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ff818266;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>My Service Pages</h1>
+    <p style="color: #57606a; font-size: 0.9em;">
+        Base URL: <a href="https://cooanyh.github.io/my-service/" target="_blank" style="color: inherit;">https://cooanyh.github.io/my-service/</a>
+    </p>
+
+    <ul id="file-list">
+        <li style="padding: 16px;" class="loading">正在从 GitHub API 获取文件列表...</li>
+    </ul>
+
+    <script>
+        const repoOwner = 'Cooanyh';
+        const repoName = 'my-service';
+        // GitHub API 地址
+        const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/`;
+        // 你的 GitHub Pages 基础路径
+        const baseUrl = `https://cooanyh.github.io/${repoName}/`;
+
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`API 请求失败: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const listContainer = document.getElementById('file-list');
+                listContainer.innerHTML = ''; // 清空加载提示
+
+                // 过滤出 .html 文件，并排除 index.html 自身
+                const htmlFiles = data.filter(item => 
+                    item.name.endsWith('.html') && item.name !== 'index.html'
+                );
+
+                if (htmlFiles.length === 0) {
+                    listContainer.innerHTML = '<li style="padding:16px;">没有找到其他 HTML 文件。</li>';
+                    return;
+                }
+
+                htmlFiles.forEach(file => {
+                    const li = document.createElement('li');
+                    const a = document.createElement('a');
+                    // 使用 GitHub Pages 的实际访问路径
+                    a.href = baseUrl + file.name;
+                    a.innerText = file.name;
+                    a.target = '_blank'; // 在新标签页打开
+                    li.appendChild(a);
+                    listContainer.appendChild(li);
+                });
+            })
+            .catch(error => {
+                const listContainer = document.getElementById('file-list');
+                listContainer.innerHTML = `<div class="error">无法加载文件列表。<br>原因: ${error.message}<br>可能受限于 GitHub API 速率限制，请稍后再试。</div>`;
+                console.error('Error:', error);
+            });
+    </script>
+</body>
+</html>
