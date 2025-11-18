@@ -15,13 +15,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # 获取完整的提交历史，有助于避免冲突
 
       - name: Generate list.html
         run: |
           python3 -c "
           import os
 
-          # 这里是你设定的输出文件名，想改名改这里
           output_filename = 'list.html'
           repo_url = 'https://cooanyh.github.io/my-service/'
           
@@ -32,7 +33,6 @@ jobs:
                   dirs.remove('.git')
               
               for f in files:
-                  # 排除生成的清单文件自身，防止死循环
                   if f.endswith('.html') and f != output_filename:
                       rel_path = os.path.relpath(root, '.')
                       
@@ -85,4 +85,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add list.html
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update list.html" && git push)
+          # 核心修改：如果提交成功，先拉取远程最新代码并变基(rebase)，再推送
+          if git commit -m "Update list.html"; then
+            git pull --rebase origin main
+            git push origin HEAD:main
+          else
+            echo "No changes to commit"
+          fi
