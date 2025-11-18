@@ -10,7 +10,7 @@
             max-width: 800px;
             margin: 40px auto;
             padding: 0 20px;
-            background-color: #f6f8fa; /* GitHub 风格背景灰 */
+            background-color: #f6f8fa;
             color: #24292f;
         }
         h1 {
@@ -18,6 +18,7 @@
             padding-bottom: 10px;
             font-size: 1.5em;
         }
+        p { margin-bottom: 20px; }
         #file-list {
             list-style: none;
             padding: 0;
@@ -38,21 +39,28 @@
             text-decoration: none;
             color: #0969da;
             transition: background 0.2s;
+            word-break: break-all; /* 防止长路径撑破页面 */
         }
         #file-list a:hover {
             background-color: #f3f4f6;
             text-decoration: underline;
         }
-        .loading {
-            color: #666;
-            font-style: italic;
-        }
+        .loading { color: #666; font-style: italic; }
         .error {
             color: #cf222e;
             background: #ffebe9;
             padding: 10px;
             border-radius: 6px;
             border: 1px solid #ff818266;
+        }
+        .folder-tag {
+            font-size: 0.85em;
+            color: #57606a;
+            margin-right: 8px;
+            background: #f6f8fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #d0d7de;
         }
     </style>
 </head>
@@ -64,31 +72,47 @@
     </p>
 
     <ul id="file-list">
-        <li style="padding: 16px;" class="loading">正在从 GitHub API 获取文件列表...</li>
+        <li style="padding: 16px;" class="loading">正在扫描所有文件夹文件...</li>
     </ul>
 
     <script>
         const repoOwner = 'Cooanyh';
         const repoName = 'my-service';
-        // GitHub API 地址
-        const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/`;
-        // 你的 GitHub Pages 基础路径
+        const branch = 'main'; // 注意：如果你的默认分支叫 master，请改成 'master'
+
+        // 使用 Git Tree API 并开启 recursive=1 (递归模式)
+        // 这是一次性获取所有层级文件的关键
+        const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/trees/${branch}?recursive=1`;
+        
         const baseUrl = `https://cooanyh.github.io/${repoName}/`;
 
         fetch(apiUrl)
             .then(response => {
                 if (!response.ok) {
+                    // 如果是 404，可能是分支名不对（比如是 master 不是 main）
+                    if (response.status === 404) {
+                        throw new Error('找不到分支。请检查代码里的 branch 变量是 main 还是 master');
+                    }
                     throw new Error(`API 请求失败: ${response.status}`);
                 }
                 return response.json();
             })
             .then(data => {
                 const listContainer = document.getElementById('file-list');
-                listContainer.innerHTML = ''; // 清空加载提示
+                listContainer.innerHTML = ''; 
 
-                // 过滤出 .html 文件，并排除 index.html 自身
-                const htmlFiles = data.filter(item => 
-                    item.name.endsWith('.html') && item.name !== 'index.html'
+                // API 返回的数据在 data.tree 数组里
+                if (!data.tree || data.tree.length === 0) {
+                    listContainer.innerHTML = '<li style="padding:16px;">仓库是空的。</li>';
+                    return;
+                }
+
+                // 过滤：只看 .html，排除 index.html 和 list.html (如果存在)
+                // item.path 包含了完整的路径，例如 "folder/sub/test.html"
+                const htmlFiles = data.tree.filter(item => 
+                    item.path.endsWith('.html') && 
+                    !item.path.endsWith('index.html') &&
+                    !item.path.endsWith('list.html')
                 );
 
                 if (htmlFiles.length === 0) {
@@ -96,20 +120,26 @@
                     return;
                 }
 
+                // 渲染列表
                 htmlFiles.forEach(file => {
                     const li = document.createElement('li');
                     const a = document.createElement('a');
-                    // 使用 GitHub Pages 的实际访问路径
-                    a.href = baseUrl + file.name;
-                    a.innerText = file.name;
-                    a.target = '_blank'; // 在新标签页打开
+                    
+                    // 完整链接
+                    a.href = baseUrl + file.path;
+                    
+                    // 为了好看，如果文件在文件夹里，我们可以简单处理一下显示
+                    // file.path 类似 "folder/a.html"
+                    a.innerHTML = file.path; 
+                    
+                    a.target = '_blank';
                     li.appendChild(a);
                     listContainer.appendChild(li);
                 });
             })
             .catch(error => {
                 const listContainer = document.getElementById('file-list');
-                listContainer.innerHTML = `<div class="error">无法加载文件列表。<br>原因: ${error.message}<br>可能受限于 GitHub API 速率限制，请稍后再试。</div>`;
+                listContainer.innerHTML = `<div class="error">无法加载文件列表。<br>原因: ${error.message}<br>提示：如果是 403 错误，说明访问太频繁触发了 GitHub 的 API 限制。</div>`;
                 console.error('Error:', error);
             });
     </script>
