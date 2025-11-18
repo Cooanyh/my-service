@@ -16,7 +16,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # 获取完整的提交历史，有助于避免冲突
+          fetch-depth: 0
 
       - name: Generate list.html
         run: |
@@ -35,7 +35,6 @@ jobs:
               for f in files:
                   if f.endswith('.html') and f != output_filename:
                       rel_path = os.path.relpath(root, '.')
-                      
                       if rel_path == '.':
                           full_path = f
                           display_name = f
@@ -47,6 +46,7 @@ jobs:
 
           links.sort(key=lambda x: x['path'])
 
+          # 注意：下面这段 HTML 里的变量只会用单层花括号 {}
           html_content = f'''
           <!DOCTYPE html>
           <html lang=\"zh-CN\">
@@ -68,7 +68,8 @@ jobs:
           
           for link in links:
               url = repo_url + link['path']
-              html_content += f'<li><a href=\"{{url}}\" target=\"_blank\">{{link[\"name\"]}}</a></li>'
+              # 这里修正了：去掉了多余的花括号，能正确显示文件名和链接了
+              html_content += f'<li><a href=\"{url}\" target=\"_blank\">{link[\"name\"]}</a></li>'
               
           html_content += '''
               </ul>
@@ -85,7 +86,6 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add list.html
-          # 核心修改：如果提交成功，先拉取远程最新代码并变基(rebase)，再推送
           if git commit -m "Update list.html"; then
             git pull --rebase origin main
             git push origin HEAD:main
