@@ -1,0 +1,3697 @@
+<!DOCTYPE html>
+<!-- (Defines language, enables Dark Mode by default) -->
+<html lang="zh" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TuneFlow</title>
+    <meta name="theme-color" content="#000000">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest"
+        href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkFldGhlciBQbGF5ZXIiLAogICJzaG9ydF9uYW1lIjogIkFldGhlciIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMDAwMDAwIiwKICAidGhlbWVfY29sb3IiOiAiIzAwMDAwMCIiLAogICJpY29ucyI6IFtdCn0=">
+
+    <!-- Tailwind (JIT CDN) & Icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;700&family=Orbitron:wght@500&family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&display=swap"
+        rel="stylesheet">
+    <!-- Color Thief -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js"></script>
+
+    <style>
+        :root {
+            --primary: #B0B8C0;
+            /* 浅灰色 */
+            --lyric-color: #FFFFFF;
+            /* 歌词高亮改为白色以适应新背景 */
+
+            /* Immersive Background Colors */
+            --bg-color-1: #2C3E50;
+            --bg-color-2: #FD746C;
+            --bg-color-3: #4B79A1;
+
+            --glass-bg: rgba(18, 18, 18, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --inactive-lyric: rgba(255, 255, 255, 0.35);
+
+            /* (新) 歌词大小 */
+            --lyric-font-size: 1.1rem;
+            --lyric-font-size-active: 1.6rem;
+
+            --lyric-inactive-opacity: 0.6;
+            --lyric-inactive-blur: 3px;
+
+            --color-center: #222;
+            --color-edge: #000;
+            --color-glow: rgba(0, 0, 0, 0);
+
+            --font-noto-sc: 'Noto Serif SC', serif;
+            --font-ma-shan: 'Ma Shan Zheng', cursive;
+            --font-zcool-xw: 'ZCOOL XiaoWei', serif;
+            --lyric-font-family: var(--font-noto-sc);
+
+            /* (新) 动效强度 */
+            --anim-intensity: 1.0;
+            /* (新) 歌词/封面 水平位置 */
+            --lyric-offset-x: 0px;
+            --cover-offset-x: 0px;
+            /* (Req 3) 新增Y轴偏移量 */
+            --lyric-offset-y: 0px;
+            --cover-offset-y: 0px;
+        }
+
+        html.light {
+            --glass-bg-light: rgba(255, 255, 255, 0.65);
+            --glass-border-light: rgba(0, 0, 0, 0.08);
+            --lyric-inactive-color: rgba(0, 0, 0, 0.4);
+            color: #000;
+        }
+
+        html.dark {
+            --glass-bg: rgba(18, 18, 18, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --lyric-inactive-color: rgba(255, 255, 255, 0.35);
+            color: #fff;
+        }
+
+        html.dark #cover-img {
+            box-shadow: 0 0 40px 10px var(--color-glow), 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            transition: box-shadow 1.5s ease-in-out;
+        }
+
+        html.light #cover-img {
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+            transition: box-shadow 1.5s ease-in-out;
+        }
+
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            @apply text-black dark:text-white font-medium;
+        }
+
+        #dynamic-bg-a,
+        #dynamic-bg-b {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 50%, var(--color-center) 0%, var(--color-edge) 100%);
+            transition: background 2.5s ease-in-out, opacity 1.5s ease-in-out;
+            will-change: transform, opacity, background-position, filter, z-index;
+        }
+
+        .light-orb {
+            position: absolute;
+            width: 30vw;
+            height: 30vw;
+            background-color: var(--color-glow);
+            filter: blur(120px);
+            opacity: 0.3;
+            border-radius: 9999px;
+            will-change: transform;
+            z-index: 1;
+        }
+
+        html.light .light-orb {
+            display: none;
+        }
+
+        #orb-1 {
+            top: 10%;
+            left: 10%;
+            animation: move-orb-1 25s ease-in-out infinite alternate;
+        }
+
+        #orb-2 {
+            bottom: 20%;
+            right: 5%;
+            animation: move-orb-2 30s ease-in-out infinite alternate;
+        }
+
+        #orb-3 {
+            top: 30%;
+            left: 40%;
+            animation: move-orb-3 20s ease-in-out infinite alternate;
+        }
+
+        @keyframes move-orb-1 {
+            from {
+                transform: translate(0, 0) scale(0.8);
+            }
+
+            to {
+                transform: translate(100vw, 50vh) scale(1.2);
+            }
+        }
+
+        @keyframes move-orb-2 {
+            from {
+                transform: translate(0, 0) scale(1);
+            }
+
+            to {
+                transform: translate(-80vw, -40vh) scale(0.7);
+            }
+        }
+
+        @keyframes move-orb-3 {
+            from {
+                transform: translate(0, 0) scale(1.1);
+            }
+
+            to {
+                transform: translate(20vw, -60vh) scale(1);
+            }
+        }
+
+        @keyframes slow-pan {
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        @keyframes slow-zoom {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            /* (新) 强度控制 */
+            50% {
+                transform: scale(calc(1.0 + 0.25 * var(--anim-intensity)));
+                opacity: 0.8;
+            }
+        }
+
+        @keyframes subtle-rotate {
+
+            0%,
+            100% {
+                transform: scale(1.15) rotate(calc(-4deg * var(--anim-intensity)));
+            }
+
+            50% {
+                transform: scale(1.15) rotate(calc(4deg * var(--anim-intensity)));
+            }
+        }
+
+        @keyframes gentle-float {
+
+            0%,
+            100% {
+                transform: scale(1.1) translateY(calc(-20px * var(--anim-intensity)));
+            }
+
+            50% {
+                transform: scale(1.1) translateY(calc(20px * var(--anim-intensity)));
+            }
+        }
+
+        @keyframes pan-diag {
+
+            0%,
+            100% {
+                background-position: 0% 0%;
+            }
+
+            50% {
+                background-position: 100% 100%;
+            }
+        }
+
+        @keyframes brightness-pulse {
+
+            0%,
+            100% {
+                filter: brightness(calc(1.0 - 0.2 * var(--anim-intensity)));
+            }
+
+            50% {
+                filter: brightness(calc(1.0 + 0.3 * var(--anim-intensity)));
+            }
+        }
+
+        .anim-pan {
+            background-size: 200% 200%;
+            animation: slow-pan 20s ease-in-out infinite;
+        }
+
+        .anim-zoom {
+            animation: slow-zoom 15s ease-in-out infinite;
+        }
+
+        .anim-rotate {
+            animation: subtle-rotate 18s ease-in-out infinite;
+        }
+
+        .anim-float {
+            animation: gentle-float 15s ease-in-out infinite;
+        }
+
+        .anim-pan-diag {
+            background-size: 180% 180%;
+            animation: pan-diag 18s ease-in-out infinite;
+        }
+
+        .anim-brightness-pulse {
+            animation: brightness-pulse 8s ease-in-out infinite;
+        }
+
+        .anim-none {
+            animation: none;
+        }
+
+        /* === Immersive Background System (from tt.html) === */
+        #ambient-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+            background: #121212;
+            display: none;
+            /* Hidden by default */
+        }
+
+        #ambient-bg.active {
+            display: block;
+        }
+
+        .ambient-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.6;
+            animation: float-orb 20s infinite ease-in-out alternate;
+            will-change: transform, opacity;
+        }
+
+        #orb-immersive-1 {
+            width: 80vw;
+            height: 80vw;
+            top: -20%;
+            left: -20%;
+            background: var(--bg-color-1);
+            animation-delay: 0s;
+        }
+
+        #orb-immersive-2 {
+            width: 70vw;
+            height: 70vw;
+            bottom: -10%;
+            right: -10%;
+            background: var(--bg-color-2);
+            animation-delay: -5s;
+        }
+
+        #orb-immersive-3 {
+            width: 60vw;
+            height: 60vw;
+            top: 40%;
+            left: 30%;
+            background: var(--bg-color-3);
+            animation-delay: -10s;
+            opacity: 0.4;
+        }
+
+        #noise-overlay {
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes float-orb {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(5%, 10%) scale(1.1);
+            }
+
+            66% {
+                transform: translate(-5%, 5%) scale(0.9);
+            }
+
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+        }
+
+
+        /* Background Style Selection Cards */
+        .bg-style-card {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bg-style-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .bg-style-card.active {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 1px var(--primary);
+        }
+
+        .bg-style-preview {
+            width: 100%;
+            height: 60px;
+            margin-bottom: 8px;
+            border-radius: 0.25rem;
+            position: relative;
+        }
+
+        /* Preview for Gradient */
+        .preview-gradient {
+            background: radial-gradient(circle at 50% 50%, #333 0%, #000 100%);
+        }
+
+        /* Preview for Immersive */
+        .preview-immersive {
+            background: #121212;
+            overflow: hidden;
+        }
+
+        .preview-immersive::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #FD746C, #2C3E50);
+            border-radius: 50%;
+            filter: blur(10px);
+        }
+
+        html.light #dynamic-bg-a,
+        html.light #dynamic-bg-b {
+            display: none;
+        }
+
+        html.light #app {
+            @apply bg-white;
+        }
+
+        html.dark #app {
+            @apply bg-black;
+        }
+
+        .glass-panel {
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            border: none;
+            box-shadow: none;
+        }
+
+        html.light .lyric-panel {
+            background: transparent;
+            border: none;
+        }
+
+        #lyric-panel-bg {
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            /* (Req 3) Y轴偏移 */
+            transform: translate(var(--lyric-offset-x), var(--lyric-offset-y));
+            transition: transform 0.3s ease-out;
+        }
+
+        html.light #lyric-panel-bg {
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        /* (Req 3) 封面/歌名 Y轴偏移 */
+        #left-column-content {
+            transform: translate(var(--cover-offset-x), var(--cover-offset-y));
+            transition: transform 0.3s ease-out;
+        }
+
+
+        .lyric-line {
+            font-family: var(--lyric-font-family, 'Noto Sans SC', sans-serif);
+            transition: filter 0.5s ease-in-out, opacity 0.5s ease-in-out, color 0.5s ease-in-out;
+            transform-origin: left center;
+            font-size: var(--lyric-font-size);
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.4);
+            opacity: var(--lyric-inactive-opacity);
+            padding: 4px 0;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+            font-weight: 500;
+            filter: blur(var(--lyric-inactive-blur));
+        }
+
+        .lyric-line.active {
+            font-size: var(--lyric-font-size-active);
+            font-weight: 700;
+            color: var(--lyric-color, var(--primary));
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+            opacity: 1;
+            filter: blur(0);
+        }
+
+        .lyric-fade-fast {
+            transition: filter 0.15s ease-out, opacity 0.15s ease-out, color 0.15s ease-out, font-size 0.15s ease-out;
+        }
+
+
+        #myhk_player_box,
+        .music-player,
+        #myhk_player {
+            display: none !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            position: fixed;
+            top: -9999px;
+        }
+
+        .switch-player {
+            opacity: 0 !important;
+        }
+
+        #lyrics-container {
+            mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+        }
+
+        .animate-spin-slow {
+            display: none;
+        }
+
+        #seek-bar {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin: 0;
+            z-index: 10;
+        }
+
+        #seek-bar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        #seek-bar::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        input[type=range].h-1\.5 {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+
+        input[type=range].h-1\.5::-webkit-slider-runnable-track {
+            height: 6px;
+        }
+
+        input[type=range].h-1\.5::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            margin-top: -4px;
+        }
+
+        html.light input[type=range].h-1\.5::-webkit-slider-runnable-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        html.dark input[type=range].h-1\.5::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* === 修正点 1: 修复了 'type:range' 拼写错误 === */
+        html.light input[type=range].h-1\.5::-webkit-slider-thumb {
+            background: #333;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        html.dark input[type=range].h-1\.5::-webkit-slider-thumb {
+            background: #fff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-15px);
+            }
+        }
+
+        .animate-float {
+            animation: float 8s ease-in-out infinite;
+        }
+
+        #song-title,
+        #song-artist {
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
+        }
+
+        .font-mono {
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+        }
+
+        @keyframes ken-burns {
+
+            0%,
+            100% {
+                transform: scale(1.1) translate(0, 0);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.2) translate(5px, -5px);
+                opacity: 1;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: var(--primary);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #c0aeff;
+        }
+
+        #drawer::-webkit-scrollbar-track,
+        #playlist-drawer::-webkit-scrollbar-track,
+        #lyrics-scroller::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        #lyrics-scroller::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        #lyrics-scroller::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        .toggle-switch-bg {
+            position: relative;
+            width: 3.5rem;
+            height: 1.75rem;
+            background-color: #374151;
+            border-radius: 9999px;
+            transition: background-color 0.3s;
+        }
+
+        input:checked+.toggle-switch-bg {
+            background-color: var(--primary);
+        }
+
+        .toggle-switch-dot {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            background-color: #fff;
+            border-radius: 9999px;
+            height: 1.5rem;
+            width: 1.5rem;
+            transition: transform 0.3s;
+        }
+
+        input:checked+.toggle-switch-bg .toggle-switch-dot {
+            transform: translateX(1.75rem);
+        }
+
+        .toggle-switch-bg span {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.5);
+            transition: color 0.3s;
+            user-select: none;
+        }
+
+        .toggle-switch-label-on {
+            right: 0.4rem;
+        }
+
+        .toggle-switch-label-off {
+            left: 0.4rem;
+            color: #fff;
+        }
+
+        input:checked+.toggle-switch-bg .toggle-switch-label-on {
+            color: #fff;
+        }
+
+        input:checked+.toggle-switch-bg .toggle-switch-label-off {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        #volume-popup.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        input[type=radio].hidden+.lyric-mode-btn {
+            transition: background-color 0.2s;
+            color: #9ca3af;
+        }
+
+        input[type=radio].hidden:checked+.lyric-mode-btn {
+            background-color: #111827;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        #lyrics-scroller.mode-one #lyrics-content,
+        #lyrics-scroller.mode-two #lyrics-content {
+            transform: none !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 100%;
+            padding: 1rem 0;
+        }
+
+        #lyrics-scroller.mode-one .lyric-line,
+        #lyrics-scroller.mode-two .lyric-line {
+            display: none;
+        }
+
+        #lyrics-scroller.mode-one .lyric-line.active,
+        #lyrics-scroller.mode-two .lyric-line.active {
+            display: block;
+            margin: 0;
+        }
+
+        #lyrics-scroller.mode-two .lyric-line.active+.lyric-line {
+            display: block;
+            font-size: var(--lyric-font-size);
+            color: var(--lyric-inactive-color);
+            font-weight: normal;
+            text-shadow: none;
+            transform: none;
+            opacity: 0.7;
+            margin: 0;
+        }
+
+        #hover-hotspot:hover~#bottom-controls,
+        #bottom-controls:hover {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+
+<body class="h-screen w-screen relative">
+
+    <canvas id="color-thief" class="hidden w-10 h-10 absolute -z-10"></canvas>
+
+    <div id="app" class="w-full h-full relative overflow-hidden">
+        <!-- Immersive Background Layer -->
+        <div id="ambient-bg">
+            <div class="ambient-orb" id="orb-immersive-1"></div>
+            <div class="ambient-orb" id="orb-immersive-2"></div>
+            <div class="ambient-orb" id="orb-immersive-3"></div>
+            <div id="noise-overlay"></div>
+        </div>
+
+        <div id="dynamic-bg-a" class="absolute inset-0 z-0 anim-pulse" style="opacity: 1; z-index: 1;"></div>
+        <div id="dynamic-bg-b" class="absolute inset-0 z-0" style="opacity: 0; z-index: 0;"></div>
+
+        <div class="light-orb" id="orb-1"></div>
+        <div class="light-orb" id="orb-2"></div>
+        <div class="light-orb" id="orb-3"></div>
+
+        <div class="absolute inset-0 z-0 hidden">
+            <video id="bg-video"
+                class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 opacity-0" muted
+                playsinline></video>
+            <img id="bg-image"
+                class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 opacity-0" src=""
+                alt="bg">
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+        </div>
+
+        <!-- (Req 3 & 5) 优化移动端间距和边距: px-6 py-8 md:px-12 md:py-16, gap-4 md:gap-12 -->
+        <div id="main-ui"
+            class="relative z-10 w-full h-full flex flex-col md:flex-row justify-center items-center px-6 py-8 md:px-12 md:py-16 gap-4 md:gap-12 lg:gap-24">
+
+            <div id="left-column-content"
+                class="flex-none flex flex-col items-center md:items-start justify-center w-full md:w-2/5 max-w-md lg:max-w-lg text-center md:text-left">
+                <!-- (Req 5) 优化移动端封面尺寸: max-w-xs -->
+                <img id="cover-img" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800&q=80"
+                    class="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg aspect-square rounded-2xl object-cover"
+                    alt="Cover">
+
+                <div class="mt-6 space-y-1 max-w-md w-full">
+
+                    <div class="flex items-center gap-4">
+                        <h1 id="song-title" class="text-2xl md:text-4xl font-bold text-white drop-shadow-md truncate"
+                            data-lang="status_initializing">Initializing Player...</h1>
+
+                        <div id="persistent-clock-container" class="hidden flex-none">
+                            <span id="persistent-clock-time"
+                                class="font-mono text-xl md:text-2xl text-primary/70">00:00:00</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <p id="song-artist" class="text-lg text-gray-300 font-light truncate"
+                            data-lang="status_wait_myhkw">Waiting for myhkw</p>
+
+                        <div id="persistent-date-container" class="hidden flex-none text-base text-gray-400 font-light">
+                            <span class="opacity-70">(</span>
+                            <span id="persistent-clock-date">2025-01-01</span>
+                            <span class="opacity-70">)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="cover-container" class="hidden"></div>
+            </div>
+
+            <div id="lyric-panel-bg" class="flex-none w-full md:w-3/5 max-w-xl lg:max-w-2xl flex flex-col min-h-0">
+
+                <div id="lyrics-container" class="w-full overflow-hidden text-left relative">
+                    <!-- (Req 5) 优化移动端歌词面板高度: h-72 md:h-auto -->
+                    <div id="lyrics-scroller"
+                        class="w-full overflow-y-auto hide-scrollbar scroll-smooth p-1 mode-all h-72 md:h-auto">
+                        <div id="lyrics-content" class="transition-transform duration-500 ease-in-out">
+                            <p class="lyric-line" data-lang="status_wait_audio">等待音频加载...</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="font-size-buttons" class="hidden">
+                    <button onclick="changeFontSize(-1)"
+                        class="w-8 h-8 rounded-full glass-panel flex items-center justify-center text-black dark:text-white hover:bg-white/20 dark:hover:bg-black/20"><i
+                            class="fas fa-minus text-xs"></i></button>
+                    <button onclick="changeFontSize(1)"
+                        class="w-8 h-8 rounded-full glass-panel flex items-center justify-center text-black dark:text-white hover:bg-white/20 dark:hover:bg-black/20"><i
+                            class="fas fa-plus text-xs"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="hover-hotspot" class="absolute inset-x-0 bottom-0 h-1/4 z-10"></div>
+
+        <div id="bottom-controls"
+            class="absolute inset-x-0 bottom-0 z-20 px-6 pb-3 pt-2 transition-all duration-500 ease-out opacity-0 bg-gradient-to-t from-black/60 via-black/40 to-transparent backdrop-blur-sm translate-y-4"
+            will-change="opacity, transform">
+            <div class="w-full max-w-screen-xl mx-auto flex flex-col gap-2">
+                <div class="flex items-center justify-between gap-4 w-full">
+                    <div class="flex-none flex items-center gap-2 font-mono text-gray-300 w-28">
+                        <span id="time-current" class="text-[11px]">00:00</span>
+                        <span class="text-[11px] opacity-50">/</span>
+                        <span id="time-total" class="text-[11px]">00:00</span>
+                        <span id="playback-speed"
+                            class="ml-1 px-1.5 py-0.5 bg-white/10 rounded text-[10px] text-primary cursor-pointer"
+                            title="Playback Speed">1.0x</span>
+                    </div>
+
+                    <div class="flex-1 flex items-center justify-center gap-2">
+                        <button
+                            class="text-gray-300 hover:bg-white/10 hover:text-white active:scale-95 transition-all w-10 h-10 rounded-full flex items-center justify-center"
+                            id="btn-prev">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"
+                                xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M8.5 4.93V15.07L4 10L8.5 4.93ZM10 5V15L14.5 10L10 5Z"></path>
+                                <path
+                                    d="M3.5 5A.5.5 0 0 1 4 4.5H5A.5.5 0 0 1 5.5 5V15A.5.5 0 0 1 5 15.5H4A.5.5 0 0 1 3.5 15V5Z">
+                                </path>
+                            </svg>
+                        </button>
+                        <button id="btn-play-main"
+                            class="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-100 transition shadow-lg">
+                            <svg id="play-icon" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 20 20"
+                                xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path
+                                    d="M6.3 4.97C5.9 4.72 5.3 4.72 4.9 4.97C4.5 5.21 4.3 5.71 4.5 6.17L6.3 9.4C6.5 9.8 6 10.21 5.5 10.21H3.7C3.1 10.21 2.7 10.8 3 11.31L6.7 17.5C7 18 7.6 18.2 8.1 18L15.3 14.8C15.8 14.6 16 14 15.8 13.5L14.1 10.4C13.8 9.9 14.2 9.3 14.7 9.3H16.5C17.1 9.3 17.5 8.7 17.2 8.2L13.5 2C13.2 1.5 12.6 1.3 12.1 1.5L7 3.9C6.5 4.1 6.3 4.7 6.6 5.2L8.2 8C8.5 8.5 8 9 7.5 9H5.7C5.1 9 4.7 8.4 5 7.9L6.3 4.97Z">
+                                </path>
+                                <path
+                                    d="M6.3 4.97C6.4 4.8 6.7 4.7 6.9 4.8L12 7.2C12.3 7.3 12.5 7.6 12.5 8C12.5 8.4 12.3 8.7 12 8.8L6.9 11.2C6.7 11.3 6.4 11.2 6.3 11.03L5 8.5C4.9 8.2 4.9 7.8 5 7.5L6.3 4.97Z">
+                                </path>
+                            </svg>
+                            <svg id="pause-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"
+                                xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path
+                                    d="M5.75 4.5A.75.75 0 0 0 5 5.25V14.75A.75.75 0 0 0 6.5 14.75V5.25A.75.75 0 0 0 5.75 4.5Z">
+                                </path>
+                                <path
+                                    d="M14.25 4.5A.75.75 0 0 0 13.5 5.25V14.75A.75.75 0 0 0 15 14.75V5.25A.75.75 0 0 0 14.25 4.5Z">
+                                </path>
+                            </svg>
+                        </button>
+                        <button
+                            class="text-gray-300 hover:bg-white/10 hover:text-white active:scale-95 transition-all w-10 h-10 rounded-full flex items-center justify-center"
+                            id="btn-next">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"
+                                xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M11.5 4.93V15.07L16 10L11.5 4.93ZM10 5V15L5.5 10L10 5Z"></path>
+                                <path
+                                    d="M16.5 5A.5.5 0 0 0 16 4.5H15A.5.5 0 0 0 14.5 5V15A.5.5 0 0 0 15 15.5H16A.5.5 0 0 0 16.5 15V5Z">
+                                </path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="flex-none flex items-center justify-end gap-0 w-28">
+                        <div class="relative">
+                            <button id="btn-volume"
+                                class="text-gray-300 hover:bg-white/10 hover:text-white active:scale-95 transition-all w-10 h-10 rounded-full flex items-center justify-center">
+                                <svg id="volume-icon" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"
+                                    xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <!-- (JS会填充路径) -->
+                                </svg>
+                            </button>
+                            <div id="volume-popup"
+                                class="absolute bottom-12 right-0 w-32 p-3 bg-black/50 backdrop-blur-md rounded-xl shadow-lg opacity-0 pointer-events-none -translate-y-2 transition-all duration-200">
+                                <input type="range" id="volume-bar" value="1" step="0.01" min="0" max="1"
+                                    class="w-full h-1.5 cursor-pointer">
+                            </div>
+                        </div>
+
+                        <button
+                            class="text-gray-300 hover:bg-white/10 hover:text-white active:scale-95 transition-all w-10 h-10 rounded-full flex items-center justify-center"
+                            onclick="openPlaylist()" title="Playlist (P)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5"
+                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 4.5v15m6-15v15m-10.5-9h15M4.5 9h15m-15 6h15m-15-6h15"></path>
+                            </svg>
+                        </button>
+
+                        <button
+                            class="text-gray-300 hover:bg-white/10 hover:text-white active:scale-95 transition-all w-10 h-10 rounded-full flex items-center justify-center"
+                            onclick="openDrawer()" title="Settings (S)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5"
+                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75">
+                                </path>
+                            </svg>
+                        </button>
+                    </div>
+
+                </div>
+                <div class="w-full space-y-1 px-1 pt-1">
+                    <div id="seek-bar-container"
+                        class="w-full h-1.5 rounded-full bg-white/20 relative group/seek cursor-pointer transition-all duration-200 hover:h-2">
+                        <div id="seek-bar-progress"
+                            class="absolute inset-y-0 left-0 rounded-full transition-all duration-100"
+                            style="background-color: var(--primary); width: 0%;"></div>
+                        <div id="seek-bar-thumb"
+                            class="absolute top-1/2 -translate-y-1/2 -translate-x-1.5 w-3 h-3 bg-white rounded-full shadow-md transition-transform duration-200 opacity-0 group-hover/seek:opacity-100"
+                            style="left: 0%;"></div>
+                        <input type="range" id="seek-bar" value="0" step="0.1" class="w-full cursor-pointer">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div id="playlist-drawer"
+            class="absolute inset-y-0 left-0 w-full md:w-[480px] bg-[#121212]/90 backdrop-blur-md z-40 transform -translate-x-full transition-transform duration-300 shadow-2xl flex flex-col border-r border-white/10">
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-[#1a1a1a]/50">
+                <!-- (Bug 1) 移除 "云端" -->
+                <h2 class="text-lg font-bold text-white" data-lang="playlist_title">Playlist</h2>
+                <button onclick="closePlaylist()"
+                    class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"><i
+                        class="fas fa-times text-white"></i></button>
+            </div>
+
+            <!-- (Enhancement 4) 搜索框 -->
+            <div class="p-4 border-b border-white/10">
+                <input type="search" id="playlist-search" data-lang-placeholder="placeholder_playlist_search"
+                    placeholder="搜索专辑或曲目..."
+                    class="w-full bg-black/20 border border-gray-700/50 rounded px-3 py-2 text-sm focus:border-primary outline-none text-white">
+            </div>
+
+            <!-- (Bug 1) 滚动内容区域 -->
+            <div id="playlist-scroll-content" class="flex-1 overflow-y-auto p-4 space-y-6">
+                <div>
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider"
+                        data-lang="playlist_albums">Albums</h3>
+                    <div id="album-list" class="space-y-1">
+                        <p class="text-xs text-gray-400" data-lang="status_wait_myhkw">Waiting for myhkw...</p>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider"
+                        data-lang="playlist_tracks">Tracks</h3>
+                    <div id="song-list" class="space-y-1">
+                    </div>
+                </div>
+                <!-- (Request 1) 移除旧的本地音乐列表 -->
+            </div>
+        </div>
+
+        <div id="drawer"
+            class="absolute inset-y-0 right-0 w-full md:w-[420px] bg-[#121212]/90 backdrop-blur-md z-[60] transform translate-x-full transition-transform duration-300 shadow-2xl flex flex-col border-l border-white/10">
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-[#1a1a1a]/50">
+                <h2 class="text-lg font-bold text-white" data-lang="settings_title">Control Panel</h2>
+                <button onclick="closeDrawer()"
+                    class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"><i
+                        class="fas fa-times text-white"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-8">
+
+                <div>
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider"
+                        data-lang="settings_display">Display</h3>
+
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_language">Language</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="lang-toggle">
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">ZH</span>
+                                <span class="toggle-switch-label-on">EN</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_screensaver">Screensaver</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-screensaver" checked>
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">OFF</span>
+                                <span class="toggle-switch-label-on">ON</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- (Req 2) Persistent Screensaver Toggle -->
+                    <div id="persistent-screensaver-container" class="flex justify-between items-center mb-2 hidden">
+                        <label class="text-sm text-gray-400 pl-4" data-lang="settings_persistent_screensaver">Persistent
+                            Mode</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-persistent-screensaver">
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">OFF</span>
+                                <span class="toggle-switch-label-on">ON</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_persistent_clock">Persistent
+                            Clock</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-persistent-clock">
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">OFF</span>
+                                <span class="toggle-switch-label-on">ON</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="color-primary" class="text-sm text-gray-300"
+                            data-lang="settings_primary_color">Theme Color</label>
+                        <input type="color" id="color-primary" value="#B0B8C0" class="w-10 h-6 p-0 border-none rounded">
+                    </div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="color-lyric" class="text-sm text-gray-300" data-lang="settings_lyric_color">Lyric
+                            Color</label>
+                        <input type="color" id="color-lyric" value="#FFFFFF" class="w-10 h-6 p-0 border-none rounded">
+                    </div>
+
+                    <!-- Background Style Section -->
+                    <div class="flex flex-col gap-3 mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_bg_style">Background Style</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <!-- Minimal Gradient Card -->
+                            <div class="bg-style-card p-3 flex flex-col items-center" id="bg-style-gradient"
+                                onclick="setBackgroundStyle('gradient')">
+                                <div class="bg-style-preview preview-gradient"></div>
+                                <span class="text-xs text-gray-200" data-lang="bg_style_gradient">Minimal
+                                    Gradient</span>
+                            </div>
+                            <!-- Immersive Orbs Card -->
+                            <div class="bg-style-card p-3 flex flex-col items-center" id="bg-style-immersive"
+                                onclick="setBackgroundStyle('immersive')">
+                                <div class="bg-style-preview preview-immersive"></div>
+                                <span class="text-xs text-gray-200" data-lang="bg_style_immersive">Streamer
+                                    Atmosphere</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gradient Effects Dropdown (Conditional) -->
+                    <div id="gradient-options-container" class="flex items-center justify-between mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_bg_animation">Gradient Effects</label>
+                        <select id="bg-animation-select"
+                            class="w-40 bg-black/20 border border-gray-700/50 rounded px-3 py-1.5 text-sm focus:border-primary outline-none text-white">
+                            <option value="random" data-lang="bg_anim_random">Random (Default)</option>
+                            <option value="pulse" data-lang="bg_anim_pulse">Pulse</option>
+                            <option value="pan" data-lang="bg_anim_pan">Slow Pan</option>
+                            <option value="zoom" data-lang="bg_anim_zoom">Slow Zoom</option>
+                            <option value="rotate" data-lang="bg_anim_rotate">Subtle Rotate</option>
+                            <option value="float" data-lang="bg_anim_float">Gentle Float</option>
+                            <option value="throb" data-lang="bg_anim_throb">Heavy Throb</option>
+                            <option value="pan-diag" data-lang="bg_anim_pan_diag">Diagonal Pan</option>
+                            <option value="brightness-pulse" data-lang="bg_anim_brightness_pulse">Brightness Pulse
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- (新) 随机动效时长 -->
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_bg_random_duration">Random Duration
+                            (s)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="random-anim-duration" min="5" step="1"
+                                class="w-20 bg-black/20 border border-gray-700/50 rounded px-3 py-1.5 text-sm focus:border-primary outline-none text-white">
+                            <button id="reset-random-anim-duration"
+                                class="w-7 h-7 rounded bg-white/10 flex items-center justify-center hover:bg-white/20"
+                                title="Reset">
+                                <i class="fas fa-undo text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- (新) 动效强度 -->
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_anim_intensity">Animation
+                            Intensity</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="anim-intensity-slider" min="0" max="2" step="0.1" value="1"
+                                class="w-28 h-1.5 cursor-pointer">
+                            <button id="reset-anim-intensity"
+                                class="w-7 h-7 rounded bg-white/10 flex items-center justify-center hover:bg-white/20"
+                                title="Reset">
+                                <i class="fas fa-undo text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- (新) 封面水平位置 -->
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_cover_offset">Cover Position
+                            (X)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="cover-offset-slider" min="-300" max="300" step="10" value="0"
+                                class="w-28 h-1.5 cursor-pointer">
+                            <button id="reset-cover-offset"
+                                class="w-7 h-7 rounded bg-white/10 flex items-center justify-center hover:bg-white/20"
+                                title="Reset">
+                                <i class="fas fa-undo text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- (Req 3) Cover Position Y -->
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_cover_offset_y">Cover Position
+                            (Y)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="cover-offset-y-slider" min="-300" max="300" step="10" value="0"
+                                class="w-28 h-1.5 cursor-pointer">
+                            <button id="reset-cover-offset-y"
+                                class="w-7 h-7 rounded bg-white/10 flex items-center justify-center hover:bg-white/20"
+                                title="Reset">
+                                <i class="fas fa-undo text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_bg_animation_toggle">Disable
+                            Animation</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-bg-animation">
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">ON</span>
+                                <span class="toggle-switch-label-on">OFF</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider"
+                        data-lang="settings_lyrics">Lyrics</h3>
+
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_lyric_font_size">Font Size</label>
+                        <!-- (变更) Q1: 添加重置按钮 -->
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="font-size-slider" min="0.5" max="3.5" step="0.1"
+                                class="w-28 h-1.5 cursor-pointer">
+                            <button id="reset-font-size"
+                                class="w-7 h-7 rounded bg-white/10 flex items-center justify-center hover:bg-white/20"
+                                title="Reset">
+                                <i class="fas fa-undo text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_inactive_lyric_visibility">Inactive
+                            Visibility</label>
+                        <!-- (变更) Q1: 添加重置按钮 -->
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="inactive-lyric-slider" min="0" max="10" step="1" value="6"
+                                class="w-28 h-1.5 cursor-pointer">
+                            <button id="reset-inactive-lyric"
+                                class="w-7 h-7 rounded bg-white/10 flex items-center justify-center hover:bg-white/20"
+                                title="Reset">
+                                <i class="fas fa-undo text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- (新) 歌词水平位置 -->
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_lyric_offset">Lyric Position
+                            (X)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="lyric-offset-slider" min="-300" max="300" step="10" value="0"
+                                class="w-28 h-1.5 cursor-pointer">
+                            <button id="reset-lyric-offset"
+                                class="w-7 h-7 rounded bg-white/10 flex items-center justify-center hover:bg-white/20"
+                                title="Reset">
+                                <i class="fas fa-undo text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- (Req 3) Lyric Position Y -->
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_lyric_offset_y">Lyric Position
+                            (Y)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="lyric-offset-y-slider" min="-300" max="300" step="10" value="0"
+                                class="w-28 h-1.5 cursor-pointer">
+                            <button id="reset-lyric-offset-y"
+                                class="w-7 h-7 rounded bg-white/10 flex items-center justify-center hover:bg-white/20"
+                                title="Reset">
+                                <i class="fas fa-undo text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-sm text-gray-300" data-lang="settings_font_family">Lyric Font</label>
+                        <select id="font-family-select"
+                            class="w-40 bg-black/20 border border-gray-700/50 rounded px-3 py-1.5 text-sm focus:border-primary outline-none text-white">
+                            <option value="noto-sc" data-lang="font_noto_sc">Noto Serif SC (Default)</option>
+                            <option value="zcool-xw" data-lang="font_zcool_xw">ZCOOL XiaoWei</option>
+                            <option value="ma-shan" data-lang="font_ma_shan">Ma Shan Zheng</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-4 hidden">
+                        <label class="text-sm text-gray-300" data-lang="settings_lyric_panel_bg">Lyric Panel</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-lyric-panel-bg" checked>
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">OFF</span>
+                                <span class="toggle-switch-label-on">ON</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_lyric_mode">Display Mode</label>
+                        <div class="flex rounded-md bg-gray-700 p-0.5" id="lyric-mode-group">
+                            <input type="radio" name="lyric-mode" id="lyric-mode-one" value="one" class="hidden">
+                            <label for="lyric-mode-one"
+                                class="lyric-mode-btn cursor-pointer px-3 py-1 text-xs rounded-md"
+                                data-lang="settings_lyric_mode_one">1 Line</label>
+
+                            <input type="radio" name="lyric-mode" id="lyric-mode-two" value="two" class="hidden">
+                            <label for="lyric-mode-two"
+                                class="lyric-mode-btn cursor-pointer px-3 py-1 text-xs rounded-md"
+                                data-lang="settings_lyric_mode_two">2 Lines</label>
+
+                            <input type="radio" name="lyric-mode" id="lyric-mode-all" value="all" class="hidden"
+                                checked>
+                            <label for="lyric-mode-all"
+                                class="lyric-mode-btn cursor-pointer px-3 py-1 text-xs rounded-md"
+                                data-lang="settings_lyric_mode_all">All</L>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hidden">
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider" data-lang="settings_bg">
+                        Background Import</h3>
+                    <label
+                        class="w-full p-3 border border-dashed border-gray-600 rounded flex items-center justify-center cursor-pointer hover:bg-white/5 transition mb-2 text-gray-300">
+                        <i class="fas fa-folder-open mr-2"></i> <span data-lang="btn_load_local_bg">Load Local
+                            Files</span>
+                        <input type="file" multiple accept="video/*,image/*" class="hidden"
+                            onchange="handleBackgroundFileImport(this)">
+                    </label>
+                    <div class="flex flex-col gap-2 mb-3">
+                        <input type="text" id="bg-input" data-lang-placeholder="placeholder_bg"
+                            placeholder="MP4 URL or JSON Gist Link"
+                            class="bg-black/20 border border-gray-700/50 rounded px-3 py-2 text-sm focus:border-primary outline-none text-white">
+                        <div class="flex gap-2">
+                            <button onclick="addBackgroundFromInput()"
+                                class="flex-1 text-black py-2 rounded font-bold text-xs hover:opacity-90"
+                                style="background-color: var(--primary);" data-lang="btn_import">Import Link</button>
+                            <button onclick="handlePaste()"
+                                class="flex-1 bg-gray-800 text-white py-2 rounded font-bold text-xs hover:bg-gray-700"
+                                data-lang="btn_paste">Paste</button>
+                        </div>
+                        <p class="text-[10px] text-gray-500" data-lang="settings_bg_hint_simple">Supported: MP4, WebM,
+                            JPG, PNG, Gist. Local files are session-only.</p>
+                    </div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_bg_random">Random Playback</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-random-bg">
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">OFF</span>
+                                <span class="toggle-switch-label-on">ON</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-gray-300" data-lang="settings_bg_kenburns">Image Animation</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-kenburns" checked>
+                            <div class="toggle-switch-bg">
+                                <span class="toggle-switch-label-off">OFF</span>
+                                <span class="toggle-switch-label-on">ON</span>
+                                <div class="toggle-switch-dot"></div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="api-refresh-rate" class="text-sm text-gray-300"
+                            data-lang="settings_bg_api_refresh">API Refresh (s)</label>
+                        <input type="number" id="api-refresh-rate" value="180"
+                            class="w-20 bg-black/20 border border-gray-700/50 rounded px-3 py-1.5 text-sm focus:border-primary outline-none text-white">
+                    </div>
+                    <div id="bg-grid" class="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto mt-4">
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider"
+                        data-lang="settings_local">Local / Direct Link</h3>
+                    <div class="space-y-2 text-xs text-gray-400 mb-2">
+                        <p data-lang="settings_local_hint">Local files will override the cloud player until refresh.</p>
+                        <!-- (Enhancement 3) 帮助文本 -->
+                        <p data-lang="settings_local_help" class="text-gray-500"><i
+                                class="fas fa-info-circle fa-xs mr-1 opacity-70"></i> Note: Embedded lyrics/covers (ID3
+                            tags) cannot be read from local files due to browser security.</p>
+                    </div>
+                    <!-- (Enhancement 2) 加载本地文件 -->
+                    <label
+                        class="w-full p-3 border border-dashed border-gray-600 rounded flex items-center justify-center cursor-pointer hover:bg-white/5 transition mb-2 text-gray-300">
+                        <i class="fas fa-file-audio mr-2"></i> <span data-lang="btn_load_local_files">Load Local
+                            Files</span>
+                        <input type="file" multiple accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac" class="hidden"
+                            onchange="handleFileImport(this)">
+                    </label>
+                    <!-- (Enhancement 1) 加载本地文件夹 (现在是累加) -->
+                    <label
+                        class="w-full p-3 border border-dashed border-gray-600 rounded flex items-center justify-center cursor-pointer hover:bg-white/5 transition mb-2 text-gray-300">
+                        <i class="fas fa-folder-open mr-2"></i> <span data-lang="btn_load_local_folder">Load Local
+                            Folder</span>
+                        <input type="file" multiple accept="audio/*" class="hidden" onchange="handleFolderImport(this)"
+                            webkitdirectory>
+                    </label>
+                    <!-- (Bug 1) 移除旧的播放列表容器 -->
+                    <div id="playlist-container" class="hidden space-y-1 max-h-40 overflow-y-auto"></div>
+                </div>
+
+                <!-- (新) 高级设置 -->
+                <div>
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider"
+                        data-lang="settings_advanced">高级设置</h3>
+                    <div class="space-y-2 text-xs text-gray-400 mb-3">
+                        <p data-lang="settings_myhkw_desc">请前往 明月浩空网 (myhkw.cn) 获取您的播放器代码。注册并创建播放器后，在播放器设置中找到 '代码调用'，复制
+                            'JS调用代码' 并粘贴到下方，或直接填入 `key` 属性中的数字。</p>
+                        <a href="https://myhkw.cn/" target="_blank" class="text-primary hover:underline"
+                            data-lang="settings_myhkw_link">前往 myhkw.cn</a>
+                    </div>
+                    <textarea id="myhkw-input" rows="3"
+                        class="w-full bg-black/20 border border-gray-700/50 rounded px-3 py-2 text-sm focus:border-primary outline-none text-white"
+                        data-lang-placeholder="placeholder_myhkw" placeholder="粘贴 <script> 代码或仅输入 key"></textarea>
+                    <button id="myhkw-save-btn"
+                        class="w-full mt-2 text-black py-2 rounded font-bold text-xs hover:opacity-90"
+                        style="background-color: var(--primary);" data-lang="btn_apply_reload">保存并刷新</button>
+                </div>
+                <!-- (新) 高级设置结束 -->
+
+
+                <div class="pt-6 border-t border-gray-800">
+                    <button onclick="resetAll()"
+                        class="w-full py-3 bg-red-900/30 text-red-200 rounded text-xs hover:bg-red-900/50"
+                        data-lang="btn_reset">Reset App Data</button>
+                </div>
+
+                <div>
+                    <h3 class="text-primary text-base font-bold uppercase mb-3 tracking-wider"
+                        data-lang="settings_shortcuts">Shortcuts</h3>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-400">
+                        <span class="font-mono text-white text-right"><kbd
+                                class="p-1 bg-white/10 rounded-md">Space</kbd></span>
+                        <span data-lang="shortcut_play">Play/Pause</span>
+                        <span class="font-mono text-white text-right"><kbd class="p-1 bg-white/10 rounded-md">↑</kbd> /
+                            <kbd class="p-1 bg-white/10 rounded-md">↓</kbd></span>
+                        <span data-lang="shortcut_volume">Volume</span>
+                        <span class="font-mono text-white text-right"><kbd class="p-1 bg-white/10 rounded-md">←</kbd> /
+                            <kbd class="p-1 bg-white/10 rounded-md">→</kbd></span>
+                        <span data-lang="shortcut_seek">Seek</span>
+                        <span class="font-mono text-white text-right"><kbd
+                                class="p-1 bg-white/10 rounded-md">M</kbd></span>
+                        <span data-lang="shortcut_mute">Mute</span>
+                        <span class="font-mono text-white text-right"><kbd
+                                class="p-1 bg-white/10 rounded-md">P</kbd></span>
+                        <span data-lang="shortcut_playlist">Playlist</span>
+                        <span class="font-mono text-white text-right"><kbd
+                                class="p-1 bg-white/10 rounded-md">S</kbd></span>
+                        <span data-lang="shortcut_settings">Settings</span>
+                        <span class="font-mono text-white text-right"><kbd
+                                class="p-1 bg-white/10 rounded-md">,</kbd></span>
+                        <span data-lang="shortcut_prev">Previous Track</span>
+                        <span class="font-mono text-white text-right"><kbd
+                                class="p-1 bg-white/10 rounded-md">.</kbd></span>
+                        <span data-lang="shortcut_next">Next Track</span>
+                    </div>
+                </div>
+
+                <div class="pt-8 mt-4 border-t border-gray-800 text-center text-xs text-gray-500">
+                    <p>&copy; 2024 <a href="https://coren.xin/" target="_blank" class="hover:text-primary">Coren</a>.
+                        All Rights Reserved.</p>
+                    <p class="mt-1" data-lang="settings_bg_hint_footer">Default videos by 影视飓风-样片日记.</p>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- (Req 6) 移动端屏保背景设为全黑 -->
+        <div id="screensaver"
+            class="absolute inset-0 z-50 bg-black md:bg-black/90 md:backdrop-blur-md flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-1000">
+            <div class="text-center animate-float space-y-4 px-8">
+                <div id="ss-clock"
+                    class="text-[15vw] md:text-[10rem] leading-none font-['Orbitron'] font-bold text-white/90">00:00
+                </div>
+                <div class="flex items-center justify-center gap-3 text-gray-400">
+                    <span id="ss-date">Date</span>
+                    <span class="w-1 h-1 bg-gray-600 rounded-full"></span>
+                    <span id="ss-lunar" class="text-primary">Lunar</span>
+                </div>
+                <!-- (Req 1) 修复屏保跳动: 添加 min-h-[8rem] -->
+                <div class="pt-12 space-y-2 max-w-lg md:max-w-2xl min-h-[8rem]">
+                    <p id="ss-lyric" class="text-2xl md:text-3xl font-bold text-white/90 truncate"
+                        data-lang="status_paused">Paused</p>
+                    <p id="ss-song-info" class="text-base text-gray-400 truncate">Aether Player</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="custom-context-menu"
+            class="hidden fixed z-50 bg-black/70 backdrop-blur-lg text-white rounded-xl shadow-2xl w-60 text-sm overflow-hidden transition-all duration-200 ease-out scale-95 opacity-0">
+        </div>
+
+    </div>
+
+    <script>
+        const SVG_PATHS = {
+            VOLUME_HIGH: '<path stroke-linecap="round" stroke-linejoin="round" d="M19.114 10.636a9 9 0 010 2.728M17.48 9.366a6.75 6.75 0 010 5.268M15.848 8.098a4.5 4.5 0 010 7.804M14.216 6.828a2.25 2.25 0 010 10.344M11.25 6v12m-6.36-8.25H2.25a.75.75 0 00-.75.75v3.75c0 .414.336.75.75.75h2.64l6.36 4.5V3.75L4.89 8.25z"></path>',
+            VOLUME_LOW: '<path stroke-linecap="round" stroke-linejoin="round" d="M14.216 6.828a2.25 2.25 0 010 10.344M11.25 6v12m-6.36-8.25H2.25a.75.75 0 00-.75.75v3.75c0 .414.336.75.75.75h2.64l6.36 4.5V3.75L4.89 8.25z"></path>',
+            VOLUME_MUTE: '<path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75L19.5 12m0 0L21.75 9.75M19.5 12L21.75 14.25M19.5 12L17.25 14.25M11.25 6v12m-6.36-8.25H2.25a.75.75 0 00-.75.75v3.75c0 .414.336.75.75.75h2.64l6.36 4.5V3.75L4.89 8.25z"></path>'
+        };
+
+        /**
+         * (Bug 3) HSL to RGB 转换函数
+         * h, s, l 范围 [0, 1]
+         * 返回 [r, g, b] 范围 [0, 255]
+         */
+        function hslToRgb(h, s, l) {
+            let r, g, b;
+            if (s == 0) {
+                r = g = b = l; // achromatic
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1 / 6) return p + (q - p) * 6 * t;
+                    if (t < 1 / 2) return q;
+                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                    return p;
+                };
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1 / 3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1 / 3);
+            }
+            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        }
+
+        const DEFAULT_COVER = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800&q=80";
+        const DEFAULT_MYHKW_KEY = "1746320559107"; // (新) 默认 Key
+
+        const DEFAULT_BGS = [
+            { type: 'image_api', url: 'https://tu.ltyuanfang.cn/api/fengjing.php' },
+            { type: 'image', url: 'https://upyun.coren.xin/corenxin/2025/07/bingimg%E4%B8%AD%E5%9B%BD%E6%A1%82%E6%9E%97_20250505_UHD.jpg' },
+            { type: 'video', url: 'https://upyun.coren.xin/corenxin/video/video01.mp4' },
+            { type: 'video', url: 'https://upyun.coren.xin/corenxin/video/video02.mp4' },
+            { type: 'video', url: 'https://upyun.coren.xin/corenxin/video/video03.mp4' }
+        ];
+
+        function isDefaultBg(url) {
+            return DEFAULT_BGS.some(bg => bg.url === url);
+        }
+
+        const state = {
+            bgList: [...DEFAULT_BGS],
+            bgIndex: 0,
+            playlist: [], // (Bug 1) 这个现在只用于本地音乐
+            localIndex: -1,
+            hooked: false,
+            randomBg: false,
+            imageAnimation: true,
+            screensaverEnabled: true,
+            persistentScreensaverEnabled: false, // (Req 2) 新增
+            lyricPanelBg: true,
+            lyricMode: 'all',
+            videoWasPlaying: false,
+            imageWasAnimating: false,
+            apiRefreshInterval: 180,
+            colorThiefCanvas: null,
+            colorThiefCtx: null,
+            playbackRate: 1.0,
+            bgAnimationMode: 'random',
+            lyricFont: 'noto-sc',
+            availableAnimations: ['pulse', 'pan', 'zoom', 'rotate', 'float', 'throb', 'pan-diag', 'brightness-pulse'],
+            bgAnimationTimer: null,
+            activeBgToggle: true,
+            bgAnimationEnabled: true,
+            persistentClockEnabled: false,
+            inactiveLyricVisibility: 6,
+            animIntensity: 1.0,
+            lyricFontSize: 3.0,
+            lyricOffsetX: 0,
+            coverOffsetX: 0,
+            lyricOffsetY: 0, // (Req 3) 新增
+            coverOffsetY: 0, // (Req 3) 新增
+            randomAnimDuration: 15,
+            myhkwKey: null,
+            activeAlbumId: null, // (Request 1) 新状态： 'local' 或 myhkw ID (暂不用)
+
+            lang: {
+                en: {
+                    status_initializing: "Initializing Player...",
+                    status_wait_myhkw: "Waiting for myhkw",
+                    status_ready: "Ready to Play",
+                    status_engine_linked: "Engine Linked",
+                    status_wait_audio: "Waiting for audio...",
+                    status_paused: "Paused",
+                    lyrics_no_lyrics: "No lyrics for this song",
+                    lyrics_instrumental: "Instrumental",
+                    lyrics_pure_music: "Instrumental, please enjoy",
+                    btn_playlist: "Playlist",
+                    btn_settings: "Settings",
+                    playlist_title: "Playlist", // (Bug 1) Changed
+                    playlist_albums: "Albums",
+                    playlist_tracks: "Tracks",
+                    playlist_local_tracks: "Local Tracks", // (Bug 1) New
+                    placeholder_playlist_search: "Search albums or tracks...", // (Enh 4) New
+                    settings_title: "Control Panel",
+                    settings_display: "Display",
+                    settings_language: "Language",
+                    settings_screensaver: "Screensaver",
+                    settings_persistent_screensaver: "Persistent Mode", // (Req 2) 新增
+                    settings_persistent_clock: "Persistent Clock",
+                    settings_primary_color: "Theme Color",
+                    settings_lyric_color: "Lyric Color",
+                    settings_bg_style: "Background Style",
+                    bg_style_gradient: "Minimal Gradient",
+                    bg_style_immersive: "Streamer Atmosphere",
+                    settings_bg_animation: "Gradient Effects",
+                    bg_anim_random: "Random (Default)",
+                    bg_anim_pan: "Slow Pan",
+                    bg_anim_zoom: "Slow Zoom",
+                    bg_anim_rotate: "Subtle Rotate",
+                    bg_anim_float: "Gentle Float",
+                    bg_anim_throb: "Heavy Throb",
+                    bg_anim_pan_diag: "Diagonal Pan",
+                    bg_anim_brightness_pulse: "Brightness Pulse",
+                    settings_bg_random_duration: "Random Duration (s)",
+                    settings_anim_intensity: "Animation Intensity",
+                    settings_cover_offset: "Cover Position (X)",
+                    settings_cover_offset_y: "Cover Position (Y)", // (Req 3) 新增
+                    settings_bg_animation_toggle: "Disable Animation",
+                    settings_lyrics: "Lyrics",
+                    settings_font_family: "Lyric Font",
+                    font_noto_sc: "Noto Serif SC (Default)",
+                    font_ma_shan: "Ma Shan Zheng",
+                    font_zcool_xw: "ZCOOL XiaoWei",
+                    settings_lyric_panel_bg: "Lyric Panel",
+                    settings_lyric_font_size: "Font Size",
+                    settings_inactive_lyric_visibility: "Inactive Visibility",
+                    settings_lyric_offset: "Lyric Position (X)",
+                    settings_lyric_offset_y: "Lyric Position (Y)", // (Req 3) 新增
+                    settings_lyric_mode: "Display Mode",
+                    settings_lyric_mode_one: "1 Line",
+                    settings_lyric_mode_two: "2 Lines",
+                    settings_lyric_mode_all: "All",
+                    settings_bg: "Background Import",
+                    placeholder_bg: "MP4 URL or JSON/Text Gist Link",
+                    btn_import: "Import Link",
+                    btn_paste: "Paste",
+                    btn_load_local_bg: "Load Local Files",
+                    settings_bg_api_refresh: "API Refresh (s)",
+                    settings_bg_hint_simple: "Gist, local files (session-only) supported.",
+
+                    settings_bg_hint_footer: "Default videos by 影视飓风-样片日记.",
+                    settings_bg_random: "Random Playback",
+                    settings_bg_kenburns: "Image Animation",
+                    settings_local: "Local / Direct Link",
+                    settings_local_hint: "Local files will override the cloud player until refresh.",
+                    settings_local_help: "<i class=\"fas fa-info-circle fa-xs mr-1 opacity-70\"></i> Note: Embedded lyrics/covers (ID3 tags) cannot be read from local files due to browser security.", // (Enh 3) New
+                    btn_load_local_files: "Load Local Files", // (Enh 2) New
+                    btn_load_local_folder: "Load Local Folder",
+                    alert_local_artist: "Local Music",
+                    settings_advanced: "Advanced",
+                    settings_myhkw_desc: "Go to myhkw.cn to get your player code. After registering, find 'Code Call' in settings, copy the 'JS Call Code' and paste it below, or just fill in the `key` number.",
+                    settings_myhkw_link: "Go to myhkw.cn",
+                    placeholder_myhkw: "Paste full <script> tag or just the key",
+                    btn_apply_reload: "Save & Reload",
+                    btn_reset: "Reset App Data",
+                    settings_shortcuts: "Shortcuts",
+                    shortcut_play: "Play/Pause",
+                    shortcut_volume: "Volume",
+                    shortcut_seek: "Seek",
+                    shortcut_mute: "Mute",
+                    shortcut_playlist: "Playlist",
+                    shortcut_settings: "Settings",
+                    shortcut_prev: "Previous Track",
+                    shortcut_next: "Next Track",
+                    alert_gist_parse_fail: "Failed to parse Gist. Ensure it's a Raw URL containing JSON or line-by-line text URLs.",
+                    alert_gist_imported: "Imported {count} backgrounds from Gist.",
+                    alert_clipboard_fail: "Clipboard permission denied",
+                    alert_local_no_lyrics: "Local Music (No Lyrics)",
+                    alert_playlist_synced: "Playlist Synced",
+                    alert_playlist_fail: "Failed to sync playlist",
+                    alert_myhkw_saved: "Settings saved! Reloading to apply.",
+                    alert_myhkw_invalid: "Invalid input. Please paste the full <script> tag or just the key number.",
+                    ctx_play: "Play",
+                    ctx_pause: "Pause",
+                    ctx_prev: "Previous",
+                    ctx_next: "Next",
+                    ctx_playlist: "Playlist",
+                    ctx_settings: "Settings",
+                    ctx_fullscreen: "Fullscreen",
+                    ctx_font_inc: "Increase Font",
+                    ctx_font_dec: "Decrease Font",
+                    ctx_ss_enable: "Enable Screensaver",
+                    ctx_ss_disable: "Disable Screensaver",
+                    ctx_ss_persistent_enable: "Enable Persistent",
+                    ctx_ss_persistent_disable: "Disable Persistent",
+                },
+                zh: {
+                    status_initializing: "播放器初始化中...",
+                    status_wait_myhkw: "等待 myhkw 加载",
+                    status_ready: "准备播放",
+                    status_engine_linked: "引擎已链接",
+                    status_wait_audio: "等待音频加载...",
+                    status_paused: "已暂停",
+                    lyrics_no_lyrics: "这首歌没有歌词",
+                    lyrics_instrumental: "纯音乐",
+                    lyrics_pure_music: "纯音乐，请欣赏",
+                    btn_playlist: "播放列表",
+                    btn_settings: "设置",
+                    playlist_title: "播放列表", // (Bug 1) Changed
+                    playlist_albums: "专辑列表",
+                    playlist_tracks: "曲目列表",
+                    playlist_local_tracks: "本地音乐", // (Bug 1) New
+                    placeholder_playlist_search: "搜索专辑或曲目...", // (Enh 4) New
+                    settings_title: "控制面板",
+                    settings_display: "显示",
+                    settings_language: "语言",
+                    settings_screensaver: "时钟屏保",
+                    settings_persistent_screensaver: "常驻模式", // (Req 2) 新增
+                    settings_persistent_clock: "常驻时钟",
+                    settings_primary_color: "主题色",
+                    settings_lyric_color: "歌词高亮",
+                    settings_bg_style: "背景风格",
+                    bg_style_gradient: "极简渐变",
+                    bg_style_immersive: "流光氛围",
+                    settings_bg_animation: "渐变特效",
+                    bg_anim_random: "随机 (默认)",
+                    bg_anim_pulse: "呼吸",
+                    bg_anim_pan: "缓慢平移",
+                    bg_anim_zoom: "缓慢缩放",
+                    bg_anim_rotate: "缓慢旋转",
+                    bg_anim_float: "轻柔浮动",
+                    bg_anim_throb: "强烈脉冲",
+                    bg_anim_pan_diag: "对角平移",
+                    bg_anim_brightness_pulse: "亮度脉冲",
+                    settings_bg_random_duration: "随机时长 (秒)",
+                    settings_anim_intensity: "动效强度",
+                    settings_cover_offset: "封面位置 (X)",
+                    settings_cover_offset_y: "封面位置 (Y)", // (Req 3) 新增
+                    settings_bg_animation_toggle: "关闭动效",
+                    settings_lyrics: "歌词",
+                    settings_font_family: "歌词字体",
+                    font_noto_sc: "思源宋体 (默认)",
+                    font_ma_shan: "马善政书法",
+                    font_zcool_xw: "站酷小微",
+                    settings_lyric_panel_bg: "Lyric Panel",
+                    settings_lyric_font_size: "字体大小",
+                    settings_inactive_lyric_visibility: "未高亮歌词可见度",
+                    settings_lyric_offset: "歌词位置 (X)",
+                    settings_lyric_offset_y: "歌词位置 (Y)", // (Req 3) 新增
+                    settings_lyric_mode: "显示模式",
+                    settings_lyric_mode_one: "单行",
+                    settings_lyric_mode_two: "双行",
+                    settings_lyric_mode_all: "全部",
+                    settings_bg: "背景导入",
+                    placeholder_bg: "MP4 链接或 Gist 链接 (JSON/Text)",
+                    btn_import: "导入链接",
+                    btn_paste: "粘贴",
+                    btn_load_local_bg: "加载本地背景",
+                    settings_bg_api_refresh: "图床刷新(秒)",
+                    settings_bg_hint_simple: "支持Gist, 本地文件 (仅限单次会话)。",
+
+                    settings_bg_hint_footer: "预置视频素材来自：影视飓风-样片日记。",
+                    settings_bg_random: "随机播放",
+                    settings_bg_kenburns: "图片动画",
+                    settings_local: "本地 / 直链",
+                    settings_local_hint: "本地文件将覆盖云端播放器，直到刷新。",
+                    settings_local_help: "<i class=\"fas fa-info-circle fa-xs mr-1 opacity-70\"></i> 提示：由于浏览器安全限制，无法读取本地文件内嵌的歌词和封面 (ID3 标签)。", // (Enh 3) New
+                    btn_load_local_files: "加载本地文件", // (Enh 2) New
+                    btn_load_local_folder: "加载本地文件夹",
+                    alert_local_artist: "本地音乐",
+                    settings_advanced: "高级设置",
+                    settings_myhkw_desc: "请前往 明月浩空网 (myhkw.cn) 获取您的播放器代码。注册并创建播放器后，在播放器设置中找到 '代码调用'，复制 'JS调用代码' 并粘贴到下方，或直接填入 `key` 属性中的数字。",
+                    settings_myhkw_link: "前往 myhkw.cn",
+                    placeholder_myhkw: "粘贴 <script> 代码或仅输入 key",
+                    btn_apply_reload: "保存并刷新",
+                    btn_reset: "重置应用数据",
+                    settings_shortcuts: "快捷键",
+                    shortcut_play: "播放/暂停",
+                    shortcut_volume: "音量",
+                    shortcut_seek: "快进/快退",
+                    shortcut_mute: "静音",
+                    shortcut_playlist: "播放列表",
+                    shortcut_settings: "设置",
+                    shortcut_prev: "上一曲",
+                    shortcut_next: "下一曲",
+                    alert_gist_parse_fail: "解析 Gist 失败。请确保是 Raw 链接，包含 JSON 或逐行 URL 文本。",
+                    alert_gist_imported: "从 Gist 导入了 {count} 个背景。",
+                    alert_clipboard_fail: "剪贴板权限被拒绝",
+                    alert_local_no_lyrics: "本地音乐 (无歌词)",
+                    alert_playlist_synced: "播放列表已同步",
+                    alert_playlist_fail: "同步播放列表失败",
+                    alert_myhkw_saved: "设置已保存！正在刷新以应用...",
+                    alert_myhkw_invalid: "无效的输入。请输入完整的 <script> 代码或仅输入 key 数字。",
+                    ctx_play: "播放",
+                    ctx_pause: "暂停",
+                    ctx_prev: "上一曲",
+                    ctx_next: "下一曲",
+                    ctx_playlist: "播放列表",
+                    ctx_settings: "设置",
+                    ctx_fullscreen: "全屏",
+                    ctx_font_inc: "增大歌词",
+                    ctx_font_dec: "减小歌词",
+                    ctx_ss_enable: "开启屏保",
+                    ctx_ss_disable: "关闭屏保",
+                    ctx_ss_persistent_enable: "开启常驻",
+                    ctx_ss_persistent_disable: "关闭常驻",
+                }
+            }
+        };
+
+        const el = {
+            app: document.getElementById('app'),
+            mainUi: document.getElementById('main-ui'),
+            video: document.getElementById('bg-video'),
+            image: document.getElementById('bg-image'),
+            title: document.getElementById('song-title'),
+            artist: document.getElementById('song-artist'),
+            progress: document.getElementById('seek-bar'),
+            progressContainer: document.getElementById('seek-bar-container'),
+            progressFill: document.getElementById('seek-bar-progress'),
+            progressThumb: document.getElementById('seek-bar-thumb'),
+            currTime: document.getElementById('time-current'),
+            totalTime: document.getElementById('time-total'),
+            lyrics: document.getElementById('lyrics-container'),
+            lyricScroller: document.getElementById('lyrics-scroller'),
+            lyricContent: document.getElementById('lyrics-content'),
+            playBtn: document.getElementById('btn-play-main'),
+            playIcon: document.getElementById('play-icon'),
+            pauseIcon: document.getElementById('pause-icon'),
+            coverContainer: document.getElementById('cover-container'),
+            coverImg: document.getElementById('cover-img'),
+            drawer: document.getElementById('drawer'),
+            playlistDrawer: document.getElementById('playlist-drawer'),
+            albumList: document.getElementById('album-list'),
+            songList: document.getElementById('song-list'),
+            localSongList: null, // (Request 1) 移除
+            playlistSearch: null, // (Enh 4) New
+            bgGrid: document.getElementById('bg-grid'),
+            ss: document.getElementById('screensaver'),
+            ssLyric: document.getElementById('ss-lyric'),
+            ssSongInfo: document.getElementById('ss-song-info'),
+
+            langToggle: document.getElementById('lang-toggle'),
+            colorPrimary: document.getElementById('color-primary'),
+            colorLyric: document.getElementById('color-lyric'),
+            toggleRandomBg: document.getElementById('toggle-random-bg'),
+            toggleKenburns: document.getElementById('toggle-kenburns'),
+            volumeBar: document.getElementById('volume-bar'),
+            volumeBtn: document.getElementById('btn-volume'),
+            volumeIcon: document.getElementById('volume-icon'),
+            volumePopup: document.getElementById('volume-popup'),
+
+            lyricPanelBg: document.getElementById('lyric-panel-bg'),
+            fontSizeButtons: document.getElementById('font-size-buttons'),
+            fontSizeSlider: document.getElementById('font-size-slider'),
+            toggleLyricPanelBg: document.getElementById('toggle-lyric-panel-bg'),
+            lyricModeGroup: document.getElementById('lyric-mode-group'),
+
+            toggleScreensaver: document.getElementById('toggle-screensaver'),
+            togglePersistentScreensaver: null, // (Req 2) 新增
+            togglePersistentClock: document.getElementById('toggle-persistent-clock'),
+
+            apiRefreshRate: document.getElementById('api-refresh-rate'),
+            playbackSpeed: document.getElementById('playback-speed'),
+
+            leftColumn: document.getElementById('left-column-content'),
+            ambientBg: document.getElementById('ambient-bg'),
+            dynamicBgA: document.getElementById('dynamic-bg-a'),
+            dynamicBgB: document.getElementById('dynamic-bg-b'),
+            bgAnimationSelect: document.getElementById('bg-animation-select'),
+            gradientOptionsContainer: document.getElementById('gradient-options-container'),
+            bgStyleGradient: document.getElementById('bg-style-gradient'),
+            bgStyleImmersive: document.getElementById('bg-style-immersive'),
+            toggleBgAnimation: document.getElementById('toggle-bg-animation'),
+            fontFamilySelect: document.getElementById('font-family-select'),
+            bottomControls: document.getElementById('bottom-controls'),
+            contextMenu: document.getElementById('custom-context-menu'),
+            persistentClockContainer: document.getElementById('persistent-clock-container'),
+            persistentClockTime: document.getElementById('persistent-clock-time'),
+            persistentDateContainer: document.getElementById('persistent-date-container'),
+            persistentClockDate: document.getElementById('persistent-clock-date'),
+            inactiveLyricSlider: document.getElementById('inactive-lyric-slider'),
+
+            // (新)
+            animIntensitySlider: document.getElementById('anim-intensity-slider'),
+            resetAnimIntensity: document.getElementById('reset-anim-intensity'),
+            lyricOffsetSlider: document.getElementById('lyric-offset-slider'),
+            resetLyricOffset: document.getElementById('reset-lyric-offset'),
+            coverOffsetSlider: document.getElementById('cover-offset-slider'),
+            resetCoverOffset: document.getElementById('reset-cover-offset'),
+            randomAnimDuration: document.getElementById('random-anim-duration'),
+            resetRandomAnimDuration: document.getElementById('reset-random-anim-duration'),
+            myhkwInput: document.getElementById('myhkw-input'),
+            myhkwSaveBtn: document.getElementById('myhkw-save-btn'),
+
+            // (变更) Q1: 添加新重置按钮
+            resetFontSize: document.getElementById('reset-font-size'),
+            resetInactiveLyric: document.getElementById('reset-inactive-lyric'),
+
+            // (Req 3) 新增Y轴滑块
+            lyricOffsetYSlider: null,
+            resetLyricOffsetY: null,
+            coverOffsetYSlider: null,
+            resetCoverOffsetY: null,
+        };
+
+        let audioObj = null;
+        let colorThief = new ColorThief(); // Initialize ColorThief
+        let activeLine = -1;
+        let idleTimer;
+        let initRetryTimer = null;
+        let apiRefreshTimer = null;
+
+        // const FONT_SIZE_STEP = 0.1; 
+        const MIN_FONT_SIZE = 0.5;
+        const MAX_FONT_SIZE = 3.5;
+
+        function setLanguage(lang) {
+            state.currentLang = lang;
+            localStorage.setItem('aether_lang', lang);
+            document.documentElement.lang = lang;
+            const elements = document.querySelectorAll('[data-lang]');
+            elements.forEach(el => {
+                const key = el.getAttribute('data-lang');
+                if (state.lang[lang][key]) {
+                    el.innerHTML = state.lang[lang][key]; // Use innerHTML for (Enh 3)
+                }
+            });
+            const placeholders = document.querySelectorAll('[data-lang-placeholder]');
+            placeholders.forEach(el => {
+                const key = el.getAttribute('data-lang-placeholder');
+                if (state.lang[lang][key]) {
+                    el.placeholder = state.lang[lang][key];
+                }
+            });
+        }
+
+        function t(key, replacements = {}) {
+            let text = state.lang[state.currentLang]?.[key] || state.lang.en[key] || key;
+            for (const [rKey, rValue] of Object.entries(replacements)) {
+                text = text.replace(`{${rKey}}`, rValue);
+            }
+            return text;
+        }
+
+        function setPrimaryColor(color) {
+            localStorage.setItem('aether_primary_color', color);
+            document.documentElement.style.setProperty('--primary', color);
+        }
+        function setLyricColor(color) {
+            localStorage.setItem('aether_lyric_color', color);
+            document.documentElement.style.setProperty('--lyric-color', color);
+        }
+
+        function setLyricPanelBg(enabled) {
+            state.lyricPanelBg = enabled;
+        }
+
+        function setLyricMode(mode) {
+            state.lyricMode = mode;
+            el.lyricScroller.classList.toggle('mode-one', mode === 'one');
+            el.lyricScroller.classList.toggle('mode-two', mode === 'two');
+            el.lyricScroller.classList.toggle('mode-all', mode === 'all');
+
+            document.getElementById('lyric-mode-one').checked = (mode === 'one');
+            document.getElementById('lyric-mode-two').checked = (mode === 'two');
+            document.getElementById('lyric-mode-all').checked = (mode === 'all');
+
+            if (audioObj) syncLyrics();
+        }
+
+        function changeFontSize(size) {
+            let newSize = parseFloat(size);
+            if (newSize < MIN_FONT_SIZE) newSize = MIN_FONT_SIZE;
+            if (newSize > MAX_FONT_SIZE) newSize = MAX_FONT_SIZE;
+
+            state.lyricFontSize = newSize;
+            let activeFontSize = newSize + 0.5;
+
+            document.documentElement.style.setProperty('--lyric-font-size', `${newSize}rem`);
+            document.documentElement.style.setProperty('--lyric-font-size-active', `${activeFontSize}rem`);
+
+            localStorage.setItem('aether_font_size', newSize);
+            el.fontSizeSlider.value = newSize;
+        }
+
+        function updateDynamicBackground(imageUrl) {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+
+            let finalUrl = imageUrl;
+            // (Request 2) 检查是否为 API URL，如果是，则不再添加 CORS 代理
+            const isApiUrl = imageUrl.includes("ltyuanfang.cn");
+
+            if (!imageUrl.startsWith('blob:') && !imageUrl.startsWith('data:') && !isApiUrl) {
+                //  finalUrl = `https://cors.eu.org/${imageUrl}`;
+                const proxyUrl = 'https://proxy.coren.xin/';
+                finalUrl = `${proxyUrl}?url=${encodeURIComponent(imageUrl)}`;
+            }
+            img.src = finalUrl;
+
+            img.onload = () => {
+                // Handle Immersive Mode Color Extraction
+                if (state.bgStyle === 'immersive') {
+                    try {
+                        const palette = colorThief.getPalette(img, 4);
+                        if (palette) {
+                            document.documentElement.style.setProperty('--bg-color-1', `rgb(${palette[0].join(',')})`);
+                            document.documentElement.style.setProperty('--bg-color-2', `rgb(${palette[1].join(',')})`);
+                            document.documentElement.style.setProperty('--bg-color-3', `rgb(${palette[2].join(',')})`);
+                        }
+                    } catch (e) {
+                        console.warn("ColorThief failed:", e);
+                    }
+                }
+
+                try {
+                    const AVG_SIZE = 10;
+                    state.colorThiefCtx.clearRect(0, 0, AVG_SIZE, AVG_SIZE);
+                    state.colorThiefCtx.drawImage(img, 0, 0, AVG_SIZE, AVG_SIZE);
+                    const pixelData = state.colorThiefCtx.getImageData(0, 0, AVG_SIZE, AVG_SIZE).data;
+
+                    let r = 0, g = 0, b = 0, count = 0;
+
+                    for (let i = 0; i < pixelData.length; i += 4) {
+                        const R = pixelData[i];
+                        const G = pixelData[i + 1];
+                        const B = pixelData[i + 2];
+                        const A = pixelData[i + 3];
+
+                        if (A < 200) continue;
+                        if (R > 240 && G > 240 && B > 240) continue;
+                        if (R < 20 && G < 20 && B < 20) continue;
+
+                        r += R;
+                        g += G;
+                        b += B;
+                        count++;
+                    }
+
+                    if (count === 0) {
+                        setDefaultGradient(); // (Request 2) 提取失败，回退
+                        return;
+                    }
+
+                    const avgR = Math.floor(r / count);
+                    const avgG = Math.floor(g / count);
+                    const avgB = Math.floor(b / count);
+
+                    const edgeR = Math.floor(avgR * 0.4);
+                    const edgeG = Math.floor(avgG * 0.4);
+                    const edgeB = Math.floor(avgB * 0.4);
+
+                    document.documentElement.style.setProperty('--color-center', `rgba(${avgR},${avgG},${avgB},0.6)`);
+                    document.documentElement.style.setProperty('--color-edge', `rgba(${edgeR},${edgeG},${edgeB},0.9)`);
+                    document.documentElement.style.setProperty('--color-glow', `rgba(${avgR},${avgG},${avgB},0.3)`);
+
+                } catch (e) {
+                    console.warn("Color thief failed (CORS?):", e, finalUrl);
+                    setDefaultGradient(); // (Request 2) 提取异常，回退
+                }
+            };
+            img.onerror = () => {
+                console.warn("Color thief: Image failed to load (CORS or proxy issue).", finalUrl);
+                setDefaultGradient(); // (Request 2) 图像加载失败，回退
+            };
+        }
+
+        function setDefaultGradient() {
+            // (Request 2) Fallback: 随机低饱和度颜色
+            const hue = Math.floor(Math.random() * 360);
+            const sat = Math.floor(20 + Math.random() * 20); // 饱和度 20-40%
+            const lig = Math.floor(30 + Math.random() * 20); // 亮度 30-50%
+
+            const [rC, gC, bC] = hslToRgb(hue / 360, sat / 100, (lig + 10) / 100); // 亮
+            const [rE, gE, bE] = hslToRgb(hue / 360, sat / 100, (lig - 10) / 100); // 暗
+            const [rG, gG, bG] = hslToRgb(hue / 360, sat / 100, lig / 100);       // 辉光
+
+            document.documentElement.style.setProperty('--color-center', `rgba(${rC},${gC},${bC},0.6)`);
+            document.documentElement.style.setProperty('--color-edge', `rgba(${rE},${gE},${bE},0.9)`);
+            document.documentElement.style.setProperty('--color-glow', `rgba(${rG},${gG},${bG},0.3)`);
+        }
+
+        // (Req 5) 仅在桌面端 (>=768px) 执行JS高度对齐
+        function alignLyricContainer() {
+            if (window.innerWidth < 768) { // md breakpoint
+                el.lyricScroller.style.height = ''; // 让 CSS (h-72) 接管
+                return;
+            }
+
+            if (el.leftColumn && el.lyricScroller) {
+                setTimeout(() => {
+                    const leftColHeight = el.leftColumn.offsetHeight;
+                    if (leftColHeight > 0) {
+                        el.lyricScroller.style.height = leftColHeight + 'px';
+                    }
+                }, 100);
+            }
+        }
+
+        function setBackgroundStyle(style) {
+            state.bgStyle = style;
+
+            // Update UI Cards
+            if (el.bgStyleGradient) el.bgStyleGradient.classList.toggle('active', style === 'gradient');
+            if (el.bgStyleImmersive) el.bgStyleImmersive.classList.toggle('active', style === 'immersive');
+
+            if (style === 'immersive') {
+                // Show Immersive
+                if (el.ambientBg) el.ambientBg.classList.add('active');
+                // Hide Gradient System
+                if (el.dynamicBgA) el.dynamicBgA.style.display = 'none';
+                if (el.dynamicBgB) el.dynamicBgB.style.display = 'none';
+                const orbs = document.querySelectorAll('.light-orb');
+                orbs.forEach(orb => orb.style.display = 'none');
+
+                // Hide Gradient Options
+                if (el.gradientOptionsContainer) el.gradientOptionsContainer.style.display = 'none';
+
+                // Trigger Color Update
+                if (el.coverImg.src && el.coverImg.src !== "") {
+                    updateDynamicBackground(el.coverImg.src);
+                }
+            } else {
+                // style === 'gradient'
+                // Hide Immersive
+                if (el.ambientBg) el.ambientBg.classList.remove('active');
+                // Show Gradient System
+                if (el.dynamicBgA) el.dynamicBgA.style.display = 'block';
+                if (el.dynamicBgB) el.dynamicBgB.style.display = 'block';
+
+                // Show Gradient Options
+                if (el.gradientOptionsContainer) el.gradientOptionsContainer.style.display = 'flex';
+
+                // Re-apply current gradient animation
+                applyBackgroundAnimation(state.bgAnimationMode || 'random');
+            }
+            saveSettings();
+        }
+
+        function applyBackgroundAnimation(mode) {
+            if (mode !== 'none') {
+                state.bgAnimationMode = mode;
+            }
+
+            // If we are in immersive mode, we just save the mode but don't run gradient logic
+            // unless we switch back.
+            if (state.bgStyle === 'immersive') {
+                el.bgAnimationSelect.value = mode;
+                saveSettings();
+                return;
+            }
+
+            if (!state.bgAnimationEnabled && mode !== 'none') {
+                mode = 'none';
+            }
+
+            if (!el.dynamicBgA || !el.dynamicBgB) return;
+
+            if (state.bgAnimationTimer) {
+                clearInterval(state.bgAnimationTimer);
+                state.bgAnimationTimer = null;
+            }
+
+            const orbs = document.querySelectorAll('.light-orb');
+            if (mode === 'none') {
+                orbs.forEach(orb => orb.style.display = 'none');
+            } else {
+                orbs.forEach(orb => orb.style.display = 'block');
+            }
+
+            const runAnimation = (animMode) => {
+                const activeEl = state.activeBgToggle ? el.dynamicBgA : el.dynamicBgB;
+                const inactiveEl = state.activeBgToggle ? el.dynamicBgB : el.dynamicBgA;
+
+                inactiveEl.className = `absolute inset-0 z-0 anim-${animMode}`;
+                inactiveEl.style.zIndex = '0';
+                activeEl.style.zIndex = '1';
+
+                inactiveEl.style.opacity = '0';
+                requestAnimationFrame(() => {
+                    inactiveEl.style.opacity = '1';
+                });
+
+                activeEl.style.opacity = '0';
+                state.activeBgToggle = !state.activeBgToggle;
+            };
+
+            if (mode === 'random') {
+                const applyRandom = () => {
+                    const anims = state.availableAnimations;
+                    const randomAnim = anims[Math.floor(Math.random() * anims.length)];
+                    runAnimation(randomAnim);
+                };
+                applyRandom();
+                state.bgAnimationTimer = setInterval(applyRandom, state.randomAnimDuration * 1000);
+            } else {
+                runAnimation(mode);
+            }
+
+            el.bgAnimationSelect.value = state.bgAnimationMode;
+            saveSettings();
+        }
+
+        function applyLyricFont(fontName) {
+            state.lyricFont = fontName;
+            const fontVar = `var(--font-${fontName})`;
+            document.documentElement.style.setProperty('--lyric-font-family', fontVar);
+            el.fontFamilySelect.value = fontName;
+            saveSettings();
+            alignLyricContainer();
+        }
+
+        function setPersistentClock(enabled) {
+            state.persistentClockEnabled = enabled;
+            if (enabled) {
+                el.persistentClockContainer.classList.remove('hidden');
+                el.persistentDateContainer.classList.remove('hidden');
+            } else {
+                el.persistentClockContainer.classList.add('hidden');
+                el.persistentDateContainer.classList.add('hidden');
+            }
+            saveSettings();
+            alignLyricContainer();
+        }
+
+        function setInactiveLyricVisibility(level) {
+            state.inactiveLyricVisibility = parseInt(level, 10);
+
+            const newOpacity = 0.1 + (state.inactiveLyricVisibility / 10) * 0.6;
+            const newBlur = 5 - (state.inactiveLyricVisibility / 10) * 5;
+
+            document.documentElement.style.setProperty('--lyric-inactive-opacity', newOpacity.toFixed(2));
+            document.documentElement.style.setProperty('--lyric-inactive-blur', `${newBlur.toFixed(2)}px`);
+
+            el.inactiveLyricSlider.value = state.inactiveLyricVisibility;
+            saveSettings();
+        }
+
+        function setAnimationIntensity(level) {
+            level = parseFloat(level);
+            state.animIntensity = level;
+            document.documentElement.style.setProperty('--anim-intensity', level.toFixed(2));
+            el.animIntensitySlider.value = level;
+            saveSettings();
+        }
+
+        function setLyricOffset(px) {
+            px = parseInt(px, 10);
+            state.lyricOffsetX = px;
+            document.documentElement.style.setProperty('--lyric-offset-x', `${px}px`);
+            el.lyricOffsetSlider.value = px;
+            saveSettings();
+        }
+
+        // (Req 3) 新增Y轴函数
+        function setLyricOffset_Y(px) {
+            px = parseInt(px, 10);
+            state.lyricOffsetY = px;
+            document.documentElement.style.setProperty('--lyric-offset-y', `${px}px`);
+            el.lyricOffsetYSlider.value = px;
+            saveSettings();
+        }
+
+        function setCoverOffset(px) {
+            px = parseInt(px, 10);
+            state.coverOffsetX = px;
+            document.documentElement.style.setProperty('--cover-offset-x', `${px}px`);
+            el.coverOffsetSlider.value = px;
+            saveSettings();
+        }
+
+        // (Req 3) 新增Y轴函数
+        function setCoverOffset_Y(px) {
+            px = parseInt(px, 10);
+            state.coverOffsetY = px;
+            document.documentElement.style.setProperty('--cover-offset-y', `${px}px`);
+            el.coverOffsetYSlider.value = px;
+            saveSettings();
+        }
+
+        function setRandomAnimDuration(seconds) {
+            seconds = parseInt(seconds, 10);
+            if (seconds < 5) seconds = 5;
+            state.randomAnimDuration = seconds;
+            el.randomAnimDuration.value = seconds;
+            if (state.bgAnimationMode === 'random') {
+                applyBackgroundAnimation('random');
+            }
+            saveSettings();
+        }
+
+
+        window.onload = () => {
+            state.colorThiefCanvas = document.getElementById('color-thief');
+            state.colorThiefCtx = state.colorThiefCanvas.getContext('2d', { willReadFrequently: true });
+
+            // (Req 2 & 3) 绑定新元素
+            el.togglePersistentScreensaver = document.getElementById('toggle-persistent-screensaver');
+            el.lyricOffsetYSlider = document.getElementById('lyric-offset-y-slider');
+            el.resetLyricOffsetY = document.getElementById('reset-lyric-offset-y');
+            el.coverOffsetYSlider = document.getElementById('cover-offset-y-slider');
+            el.resetCoverOffsetY = document.getElementById('reset-cover-offset-y');
+
+            // (Request 1) 移除 el.localSongList
+            el.playlistSearch = document.getElementById('playlist-search');
+            el.playlistSearch.addEventListener('input', filterPlaylist);
+
+            const savedLang = localStorage.getItem('aether_lang') || 'zh';
+            state.currentLang = savedLang;
+            el.langToggle.checked = (savedLang === 'en');
+            setLanguage(savedLang);
+
+            const savedPrimaryColor = localStorage.getItem('aether_primary_color') || '#B0B8C0';
+            el.colorPrimary.value = savedPrimaryColor;
+            setPrimaryColor(savedPrimaryColor);
+
+            const savedLyricColor = localStorage.getItem('aether_lyric_color') || '#FFFFFF';
+            el.colorLyric.value = savedLyricColor;
+            setLyricColor(savedLyricColor);
+
+            const savedFontSize = localStorage.getItem('aether_font_size');
+            if (savedFontSize) {
+                changeFontSize(parseFloat(savedFontSize));
+            } else {
+                changeFontSize(3.0);
+            }
+            el.fontSizeSlider.oninput = (e) => changeFontSize(e.target.value);
+            el.inactiveLyricSlider.oninput = (e) => setInactiveLyricVisibility(e.target.value);
+            el.resetFontSize.onclick = () => changeFontSize(3.0);
+            el.resetInactiveLyric.onclick = () => setInactiveLyricVisibility(6);
+
+
+            el.langToggle.onchange = (e) => setLanguage(e.target.checked ? 'en' : 'zh');
+            el.colorPrimary.oninput = (e) => setPrimaryColor(e.target.value);
+            el.colorLyric.oninput = (e) => setLyricColor(e.target.value);
+
+            el.toggleRandomBg.onchange = (e) => {
+                state.randomBg = e.target.checked;
+                saveSettings();
+            };
+            el.toggleKenburns.onchange = (e) => {
+                state.imageAnimation = e.target.checked;
+                saveSettings();
+                if (el.image.classList.contains('opacity-0')) return;
+                el.image.style.animation = state.imageAnimation ? 'ken-burns 25s ease-in-out infinite' : 'none';
+            };
+
+            // (Req 2) 修改屏保开关逻辑
+            el.toggleScreensaver.onchange = (e) => {
+                state.screensaverEnabled = e.target.checked;
+                document.getElementById('persistent-screensaver-container').classList.toggle('hidden', !e.target.checked);
+
+                if (!e.target.checked) {
+                    // 如果主开关关闭，强制关闭并隐藏常驻开关
+                    el.togglePersistentScreensaver.checked = false;
+                    state.persistentScreensaverEnabled = false;
+                }
+
+                saveSettings();
+                resetIdle();
+            };
+
+            // (Req 2) 绑定常驻屏保开关
+            el.togglePersistentScreensaver.onchange = (e) => {
+                state.persistentScreensaverEnabled = e.target.checked;
+                saveSettings();
+                resetIdle(); // 立即应用状态
+            };
+
+            el.toggleLyricPanelBg.onchange = (e) => { setLyricPanelBg(e.target.checked); saveSettings(); };
+            el.lyricModeGroup.addEventListener('change', (e) => {
+                if (e.target.name === 'lyric-mode') {
+                    setLyricMode(e.target.value);
+                    saveSettings();
+                }
+            });
+
+            el.apiRefreshRate.onchange = (e) => {
+                state.apiRefreshInterval = parseInt(e.target.value) || 180;
+                saveSettings();
+                const bg = state.bgList[state.bgIndex];
+                if (bg && bg.type === 'image_api') {
+                    playCurrentBg();
+                }
+            };
+
+            el.bgAnimationSelect.onchange = (e) => applyBackgroundAnimation(e.target.value);
+
+            el.toggleBgAnimation.onchange = (e) => {
+                state.bgAnimationEnabled = !e.target.checked;
+                if (state.bgAnimationEnabled) {
+                    applyBackgroundAnimation(state.bgAnimationMode || 'random');
+                } else {
+                    applyBackgroundAnimation('none');
+                }
+                saveSettings();
+            };
+
+            el.fontFamilySelect.onchange = (e) => applyLyricFont(e.target.value);
+
+            el.togglePersistentClock.onchange = (e) => setPersistentClock(e.target.checked);
+
+            el.animIntensitySlider.oninput = (e) => setAnimationIntensity(e.target.value);
+            el.resetAnimIntensity.onclick = () => setAnimationIntensity(1.0);
+
+            el.lyricOffsetSlider.oninput = (e) => setLyricOffset(e.target.value);
+            el.resetLyricOffset.onclick = () => setLyricOffset(0);
+
+            el.coverOffsetSlider.oninput = (e) => setCoverOffset(e.target.value);
+            el.resetCoverOffset.onclick = () => setCoverOffset(0);
+
+            // (Req 3) 绑定Y轴滑块
+            el.lyricOffsetYSlider.oninput = (e) => setLyricOffset_Y(e.target.value);
+            el.resetLyricOffsetY.onclick = () => setLyricOffset_Y(0);
+            el.coverOffsetYSlider.oninput = (e) => setCoverOffset_Y(e.target.value);
+            el.resetCoverOffsetY.onclick = () => setCoverOffset_Y(0);
+
+            el.randomAnimDuration.onchange = (e) => setRandomAnimDuration(e.target.value);
+            el.resetRandomAnimDuration.onclick = () => setRandomAnimDuration(15);
+
+            el.myhkwSaveBtn.onclick = saveMyhkwSettings;
+
+
+            el.volumeBtn.onclick = (e) => {
+                e.stopPropagation();
+                el.volumePopup.classList.toggle('active');
+            };
+            el.volumePopup.onclick = (e) => e.stopPropagation();
+
+            document.addEventListener('click', () => {
+                el.volumePopup.classList.remove('active');
+            });
+
+            el.mainUi.addEventListener('click', () => {
+                closeDrawer();
+                closePlaylist();
+            });
+
+            const stopPropAndCloseMenu = (e) => {
+                e.stopPropagation();
+                closeContextMenu();
+            };
+            el.drawer.addEventListener('click', stopPropAndCloseMenu);
+            el.playlistDrawer.addEventListener('click', stopPropAndCloseMenu);
+            el.bottomControls.addEventListener('click', stopPropAndCloseMenu);
+
+
+            document.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                updateContextMenu();
+                const menu = el.contextMenu;
+
+                const { clientX: mouseX, clientY: mouseY } = e;
+                const { innerWidth: winWidth, innerHeight: winHeight } = window;
+                const menuWidth = menu.offsetWidth || 240;
+                const menuHeight = menu.offsetHeight;
+
+                let x = mouseX;
+                let y = mouseY;
+
+                if (mouseX + menuWidth > winWidth) {
+                    x = winWidth - menuWidth - 10;
+                }
+                if (mouseY + menuHeight > winHeight) {
+                    y = winHeight - menuHeight - 10;
+                }
+
+                menu.style.left = `${x}px`;
+                menu.style.top = `${y}px`;
+                menu.classList.remove('hidden', 'scale-95', 'opacity-0');
+                menu.classList.add('scale-100', 'opacity-100');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (el.contextMenu && !el.contextMenu.contains(e.target)) {
+                    closeContextMenu();
+                }
+            });
+
+
+            loadSettings();
+
+            updateDynamicBackground(DEFAULT_COVER);
+
+            initClock();
+
+            loadMyhkwPlayer();
+            initializePlayerIntegration();
+
+            document.addEventListener('mousemove', resetIdle);
+            document.addEventListener('touchstart', resetIdle);
+            resetIdle(); // (Req 2) 初始调用以应用常驻模式（如果已开启）
+
+            window.addEventListener('resize', alignLyricContainer);
+
+            // renderLocalPlaylistToDrawer(); // (Request 1) 移除
+        };
+
+        function loadMyhkwPlayer() {
+            const key = state.myhkwKey || DEFAULT_MYHKW_KEY;
+            createMyhkwScript(key);
+            if (state.myhkwKey) {
+                el.myhkwInput.value = state.myhkwKey;
+            }
+        }
+
+        function createMyhkwScript(key) {
+            const existingScript = document.getElementById('myhk');
+            if (existingScript) {
+                existingScript.remove();
+            }
+
+            const script = document.createElement('script');
+            script.id = 'myhk';
+            script.type = 'text/javascript';
+            script.src = `https://myhkw.cn/api/player/${key}`;
+            script.setAttribute('key', key);
+            script.setAttribute('m', '1');
+            script.onerror = () => {
+                alert(`无法加载 myhkw 播放器 (Key: ${key})。请检查 Key 或网络连接。`);
+            };
+            document.body.appendChild(script);
+        }
+
+        function saveMyhkwSettings() {
+            const input = el.myhkwInput.value.trim();
+            let key = '';
+
+            const match = input.match(/key="(\d+)"/);
+            if (match && match[1]) {
+                key = match[1];
+            }
+            else if (/^\d+$/.test(input)) {
+                key = input;
+            }
+            else if (input === '') {
+                key = null;
+            }
+            else {
+                alert(t('alert_myhkw_invalid'));
+                return;
+            }
+
+            state.myhkwKey = key;
+            saveSettings();
+            alert(t('alert_myhkw_saved'));
+            location.reload();
+        }
+
+        function initializePlayerIntegration() {
+            const audioReady = document.getElementById('myhkaudio');
+            const coverReady = document.querySelector('.myhkcover img');
+            const controlsReady = document.querySelector('.myhkprev') && document.querySelector('.myhknext');
+            const lyricSwitchReady = document.querySelector('.switch-ksclrc');
+            const playlistReady = document.querySelector('.myhkplaylist');
+
+            if (audioReady && coverReady && controlsReady && lyricSwitchReady && playlistReady) {
+                console.log("Aether: Audio Engine Hooked Successfully.");
+                if (initRetryTimer) clearTimeout(initRetryTimer);
+                audioObj = audioReady;
+                initAudioListeners();
+            } else {
+                if (initRetryTimer) clearTimeout(initRetryTimer);
+                initRetryTimer = setTimeout(initializePlayerIntegration, 500);
+            }
+        }
+
+        function initAudioListeners() {
+            state.hooked = true;
+            el.title.innerText = t('status_ready');
+            el.artist.innerText = t('status_engine_linked');
+            el.ssSongInfo.innerText = `${t('status_ready')} - ${t('status_engine_linked')}`;
+
+            el.playBtn.onclick = togglePlay;
+
+            const btnPrev = document.getElementById('btn-prev');
+            const btnNext = document.getElementById('btn-next');
+
+            btnPrev.onclick = () => {
+                if (state.localIndex > -1) playLocal(-1);
+                else {
+                    resetLocalPlayer(); // (Bug 2)
+                    document.querySelector('.myhkprev')?.click();
+                }
+            };
+            btnNext.onclick = () => {
+                if (state.localIndex > -1) playLocal(1);
+                else {
+                    resetLocalPlayer(); // (Bug 2)
+                    document.querySelector('.myhknext')?.click();
+                }
+            };
+
+            el.playbackSpeed.onclick = cyclePlaybackSpeed;
+
+            el.progress.addEventListener('input', (e) => {
+                if (audioObj) {
+                    const percent = (e.target.value / audioObj.duration) * 100;
+                    el.progressFill.style.width = `${percent}%`;
+                    el.progressThumb.style.left = `${percent}%`;
+                }
+            });
+            el.progress.addEventListener('change', (e) => {
+                if (audioObj) audioObj.currentTime = e.target.value;
+            });
+
+            audioObj.addEventListener('play', updatePlayState);
+            audioObj.addEventListener('pause', updatePlayState);
+            audioObj.addEventListener('timeupdate', onTimeUpdate);
+            audioObj.addEventListener('ended', () => {
+                if (state.localIndex > -1) playLocal(1);
+            });
+            audioObj.addEventListener('emptied', () => {
+                if (state.localIndex > -1) return;
+                el.title.innerText = t('status_wait_audio');
+                el.artist.innerText = "...";
+                showLyricPlaceholder(t('status_wait_audio'));
+                el.ssSongInfo.innerText = '...';
+
+                el.coverImg.src = DEFAULT_COVER;
+                updateDynamicBackground(DEFAULT_COVER);
+                updateMediaSession(); // (Req 4) 清除媒体信息
+
+                setTimeout(updateSongInfo, 500);
+            });
+
+            document.addEventListener('keydown', handleKeydown);
+
+            el.volumeBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (el.volumePopup.classList.contains('active')) {
+                    toggleMute();
+                } else {
+                    el.volumePopup.classList.add('active');
+                }
+            };
+
+            el.volumeBar.addEventListener('input', (e) => changeVolume(parseFloat(e.target.value)));
+            audioObj.addEventListener('volumechange', updateVolumeUI);
+
+            el.volumeBar.value = audioObj.volume;
+            updateVolumeUI();
+
+            // (Req 4) 设置 MediaSession 动作处理器
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.setActionHandler('play', togglePlay);
+                navigator.mediaSession.setActionHandler('pause', togglePlay);
+                navigator.mediaSession.setActionHandler('previoustrack', () => btnPrev.click());
+                navigator.mediaSession.setActionHandler('nexttrack', () => btnNext.click());
+            }
+
+            updateSongInfo();
+            updatePlayState();
+            syncPlaylist();
+            // renderLocalPlaylistToDrawer(); // (Request 1) 移除
+            setTimeout(turnOffPlayerInternalLyrics, 1000);
+
+            alignLyricContainer();
+
+            startLyricSyncLoop();
+        }
+
+        function startLyricSyncLoop() {
+            if (!state.hooked) return;
+            syncLyrics();
+            requestAnimationFrame(startLyricSyncLoop);
+        }
+
+        function onTimeUpdate() {
+            if (!audioObj) return;
+            const t = audioObj.currentTime;
+            const d = audioObj.duration || 0;
+            if (isNaN(d) || d === 0) return;
+
+            el.progress.max = d;
+            el.progress.value = t;
+            const percent = (t / d) * 100;
+            el.progressFill.style.width = `${percent}%`;
+            el.progressThumb.style.left = `${percent}%`;
+
+            el.currTime.innerText = formatTime(t);
+            el.totalTime.innerText = formatTime(d);
+
+            if (state.localIndex === -1) {
+                updateSongInfo();
+            }
+
+            if (audioObj.playbackRate !== state.playbackRate) {
+                audioObj.playbackRate = state.playbackRate;
+            }
+        }
+
+        function togglePlay() {
+            if (!audioObj) return;
+            if (audioObj.paused) audioObj.play();
+            else audioObj.pause();
+        }
+
+        function updatePlayState() {
+            if (!audioObj) return;
+            const isPlaying = !audioObj.paused;
+
+            if (isPlaying) {
+                el.playIcon.classList.add('hidden');
+                el.pauseIcon.classList.remove('hidden');
+                syncLyrics();
+                // (Req 4) 更新 MediaSession 播放状态
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = "playing";
+                }
+            } else {
+                el.playIcon.classList.remove('hidden');
+                el.pauseIcon.classList.add('hidden');
+                el.ssLyric.innerText = t('status_paused');
+                // (Req 4) 更新 MediaSession 播放状态
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.playbackState = "paused";
+                }
+            }
+        }
+
+        function changeVolume(level) {
+            level = Math.max(0, Math.min(1, level));
+            if (audioObj) audioObj.volume = level;
+            if (audioObj.muted && level > 0) audioObj.muted = false;
+        }
+
+        function toggleMute() {
+            if (audioObj) audioObj.muted = !audioObj.muted;
+        }
+
+        function updateVolumeUI() {
+            if (!audioObj || !el.volumeIcon) return;
+
+            if (audioObj.muted || audioObj.volume === 0) {
+                el.volumeIcon.innerHTML = SVG_PATHS.VOLUME_MUTE;
+                el.volumeIcon.setAttribute('fill', 'none');
+                el.volumeIcon.setAttribute('stroke', 'currentColor');
+                el.volumeIcon.setAttribute('stroke-width', '1.5');
+                el.volumeBar.value = 0;
+            } else if (audioObj.volume < 0.5) {
+                el.volumeIcon.innerHTML = SVG_PATHS.VOLUME_LOW;
+                el.volumeIcon.setAttribute('fill', 'none');
+                el.volumeIcon.setAttribute('stroke', 'currentColor');
+                el.volumeIcon.setAttribute('stroke-width', '1.5');
+                el.volumeBar.value = audioObj.volume;
+            } else {
+                el.volumeIcon.innerHTML = SVG_PATHS.VOLUME_HIGH;
+                el.volumeIcon.setAttribute('fill', 'none');
+                el.volumeIcon.setAttribute('stroke', 'currentColor');
+                el.volumeIcon.setAttribute('stroke-width', '1.5');
+                el.volumeBar.value = audioObj.volume;
+            }
+        }
+
+        function cyclePlaybackSpeed() {
+            const rates = [1.0, 1.25, 1.5, 2.0, 0.75];
+            let currentIdx = rates.indexOf(state.playbackRate);
+            let nextIdx = (currentIdx + 1) % rates.length;
+            state.playbackRate = rates[nextIdx];
+            if (audioObj) audioObj.playbackRate = state.playbackRate;
+            el.playbackSpeed.innerText = `${state.playbackRate.toFixed(state.playbackRate === 1.0 ? 1 : 2)}x`;
+        }
+
+        function handleKeydown(e) {
+            if (!audioObj) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            switch (e.key) {
+                case ' ': e.preventDefault(); togglePlay(); break;
+                case 'ArrowRight': e.preventDefault(); audioObj.currentTime += 5; break;
+                case 'ArrowLeft': e.preventDefault(); audioObj.currentTime -= 5; break;
+                case 'ArrowUp': e.preventDefault(); changeVolume(audioObj.volume + 0.1); break;
+                case 'ArrowDown': e.preventDefault(); changeVolume(audioObj.volume - 0.1); break;
+                case 'm': case 'M': e.preventDefault(); toggleMute(); break;
+                case 'p': case 'P': e.preventDefault(); openPlaylist(); break;
+                case 's': case 'S': e.preventDefault(); openDrawer(); break;
+                case 'Escape': e.preventDefault(); closeDrawer(); closePlaylist(); closeContextMenu(); break;
+                case ',': e.preventDefault(); document.getElementById('btn-prev').click(); break;
+                case '.': e.preventDefault(); document.getElementById('btn-next').click(); break;
+            }
+        }
+
+        function closeContextMenu() {
+            if (el.contextMenu && !el.contextMenu.classList.contains('hidden')) {
+                const menu = el.contextMenu;
+                menu.classList.remove('scale-100', 'opacity-100');
+                menu.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    menu.classList.add('hidden');
+                }, 200);
+            }
+        }
+
+        function updateContextMenu() {
+            const menu = el.contextMenu;
+            const isPaused = !audioObj || audioObj.paused;
+            const isFullscreen = !!document.fullscreenElement;
+
+            const itemClass = "flex items-center gap-4 px-5 py-3 cursor-pointer hover:bg-white/10 transition-colors duration-150 ease-out";
+            const divider = '<div class="h-[1px] bg-white/10 my-1"></div>';
+
+            menu.innerHTML = `
+                <div class="${itemClass}" id="ctx-playpause">
+                    <i class="fas ${isPaused ? 'fa-play' : 'fa-pause'} w-5 text-center text-primary"></i>
+                    <span>${isPaused ? t('ctx_play') : t('ctx_pause')}</span>
+                </div>
+                <div class="${itemClass}" id="ctx-prev">
+                    <i class="fas fa-backward-step w-5 text-center opacity-70"></i>
+                    <span>${t('ctx_prev')}</span>
+                </div>
+                <div class="${itemClass}" id="ctx-next">
+                    <i class="fas fa-forward-step w-5 text-center opacity-70"></i>
+                    <span>${t('ctx_next')}</span>
+                </div>
+                
+                ${divider}
+
+                <div class="${itemClass}" id="ctx-font-inc">
+                    <i class="fas fa-plus w-5 text-center opacity-70"></i>
+                    <span>${t('ctx_font_inc')}</span>
+                </div>
+                <div class="${itemClass}" id="ctx-font-dec">
+                    <i class="fas fa-minus w-5 text-center opacity-70"></i>
+                    <span>${t('ctx_font_dec')}</span>
+                </div>
+
+                ${divider}
+
+                <div class="${itemClass}" id="ctx-screensaver-toggle">
+                    <i class="fas fa-clock w-5 text-center opacity-70"></i>
+                    <span>${state.screensaverEnabled ? t('ctx_ss_disable') : t('ctx_ss_enable')}</span>
+                </div>
+                ${state.screensaverEnabled ? `
+                <div class="${itemClass}" id="ctx-persistent-screensaver-toggle">
+                    <i class="fas fa-thumbtack w-5 text-center opacity-70"></i>
+                    <span>${state.persistentScreensaverEnabled ? t('ctx_ss_persistent_disable') : t('ctx_ss_persistent_enable')}</span>
+                </div>
+                ` : ''}
+
+                ${divider}
+
+                <div class="${itemClass}" id="ctx-playlist">
+                    <i class="fas fa-hashtag w-5 text-center opacity-70"></i>
+                    <span>${t('ctx_playlist')}</span>
+                </div>
+                <div class="${itemClass}" id="ctx-settings">
+                    <i class="fas fa-sliders w-5 text-center opacity-70"></i>
+                    <span>${t('ctx_settings')}</span>
+                </div>
+                <div class="${itemClass}" id="ctx-fullscreen">
+                    <i class="fas ${isFullscreen ? 'fa-compress' : 'fa-expand'} w-5 text-center opacity-70"></i>
+                    <span>${t('ctx_fullscreen')}</span>
+                </div>
+            `;
+
+            const createMenuClickHandler = (action, autoHide = true) => {
+                return (e) => {
+                    e.stopPropagation();
+                    action();
+                    if (autoHide) {
+                        closeContextMenu();
+                    }
+                };
+            };
+
+            document.getElementById('ctx-playpause').onclick = createMenuClickHandler(togglePlay);
+            document.getElementById('ctx-prev').onclick = createMenuClickHandler(() => document.getElementById('btn-prev').click());
+            document.getElementById('ctx-next').onclick = createMenuClickHandler(() => document.getElementById('btn-next').click());
+
+            const FONT_SIZE_STEP = 0.1;
+            document.getElementById('ctx-font-inc').onclick = createMenuClickHandler(() => changeFontSize(state.lyricFontSize + FONT_SIZE_STEP), false);
+            document.getElementById('ctx-font-dec').onclick = createMenuClickHandler(() => changeFontSize(state.lyricFontSize - FONT_SIZE_STEP), false);
+
+            document.getElementById('ctx-playlist').onclick = createMenuClickHandler(openPlaylist);
+            document.getElementById('ctx-settings').onclick = createMenuClickHandler(openDrawer);
+            document.getElementById('ctx-fullscreen').onclick = createMenuClickHandler(toggleFullscreen);
+
+            document.getElementById('ctx-screensaver-toggle').onclick = createMenuClickHandler(() => {
+                const enabled = !state.screensaverEnabled;
+                state.screensaverEnabled = enabled;
+                el.toggleScreensaver.checked = enabled;
+                document.getElementById('persistent-screensaver-container').classList.toggle('hidden', !enabled);
+                if (!enabled) {
+                    state.persistentScreensaverEnabled = false;
+                    el.togglePersistentScreensaver.checked = false;
+                }
+                saveSettings();
+                resetIdle();
+            });
+
+            const psItem = document.getElementById('ctx-persistent-screensaver-toggle');
+            if (psItem) {
+                psItem.onclick = createMenuClickHandler(() => {
+                    const enabled = !state.persistentScreensaverEnabled;
+                    state.persistentScreensaverEnabled = enabled;
+                    el.togglePersistentScreensaver.checked = enabled;
+                    saveSettings();
+                    resetIdle();
+                });
+            }
+
+            menu.onclick = (e) => e.stopPropagation();
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // (Bug 2) 新的重置函数
+        function resetLocalPlayer() {
+            state.activeAlbumId = null; // (Request 1)
+            if (state.localIndex === -1) return; // 已经在播放云端
+
+            state.localIndex = -1;
+            // renderLocalPlaylistToDrawer(); // (Request 1) 移除，由 syncPlaylist() 处理
+
+            // 强制 myhkw 将其状态同步到UI
+            // 这是关键部分。
+            // 我们需要重新触发在本地播放时被禁用的同步逻辑。
+            updateSongInfo(); // 现在将运行
+            syncLyrics(); // 现在将运行
+
+            // 如果云端播放器已暂停，UI可能仍停留在*本地*歌曲信息上。
+            // 我们需要立即从云端DOM手动更新它。
+            try {
+                const coverSrc = document.querySelector('.myhkcover img')?.src || DEFAULT_COVER;
+                const titleText = document.querySelector('.myhksong span')?.innerText || t('status_ready');
+                const artistText = document.querySelector('.myhkartist span')?.innerText || t('status_engine_linked');
+
+                el.coverImg.src = coverSrc;
+                updateDynamicBackground(coverSrc);
+                el.title.innerText = titleText;
+                el.artist.innerText = artistText;
+                el.ssSongInfo.innerText = `${titleText} - ${artistText}`;
+
+                // (Req 4) 更新 MediaSession
+                updateMediaSession({
+                    title: titleText,
+                    artist: artistText,
+                    artwork: coverSrc
+                });
+
+                // 同时重置歌词
+                const allLIs = Array.from(document.querySelectorAll('#myhkLrc li'));
+                if (allLIs.length > 0) {
+                    rebuildLyrics(allLIs);
+                    syncLyrics(); // 再次运行同步
+                } else {
+                    showLyricPlaceholder(audioObj.paused ? 'status_paused' : 'lyrics_no_lyrics');
+                }
+            } catch (e) {
+                console.warn("Error forcing state reset:", e);
+            }
+        }
+
+
+        function updateSongInfo() {
+            if (state.localIndex > -1) return;
+            try {
+                const coverSrc = document.querySelector('.myhkcover img')?.src;
+                const titleText = document.querySelector('.myhksong span')?.innerText;
+                const artistText = document.querySelector('.myhkartist span')?.innerText;
+
+                if (coverSrc && el.coverImg.src !== coverSrc) {
+                    el.coverImg.src = coverSrc;
+                    updateDynamicBackground(coverSrc);
+                }
+
+                let resized = false;
+                if (titleText && el.title.innerText !== titleText) {
+                    el.title.innerText = titleText;
+                    resized = true;
+                }
+                if (artistText && el.artist.innerText !== artistText) {
+                    el.artist.innerText = artistText;
+                    resized = true;
+                }
+                if (resized) {
+                    setTimeout(alignLyricContainer, 50);
+                    // (Req 4) 更新 MediaSession
+                    updateMediaSession({
+                        title: titleText,
+                        artist: artistText,
+                        artwork: coverSrc
+                    });
+                }
+
+            } catch (e) {
+                console.warn("Error updating song info:", e);
+            }
+            el.ssSongInfo.innerText = `${el.title.innerText} - ${el.artist.innerText}`;
+        }
+
+        // (Req 4) 新增: 更新系统媒体控件
+        function updateMediaSession(metadata = {}) {
+            if (!('mediaSession' in navigator)) {
+                return;
+            }
+
+            const {
+                title = t('status_ready'),
+                artist = t('status_engine_linked'),
+                artwork = DEFAULT_COVER
+            } = metadata;
+
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: title,
+                artist: artist,
+                album: artist, // 暂时用 artist 填充 album
+                artwork: [
+                    { src: artwork, sizes: '512x512', type: 'image/png' } // 假设是png，浏览器会处理
+                ]
+            });
+        }
+
+        function turnOffPlayerInternalLyrics() {
+            try {
+                const lyricSwitch = document.querySelector('.switch-ksclrc');
+                const icon = lyricSwitch?.querySelector('i');
+                if (icon && icon.classList.contains('myhkicon-anniu_kaiqi')) {
+                    lyricSwitch.click();
+                }
+            } catch (e) {
+                console.warn("Error turning off internal lyrics:", e);
+            }
+        }
+
+        // (Request 1) 完全重写 syncPlaylist
+        function syncPlaylist() {
+            try {
+                el.albumList.innerHTML = '';
+                el.songList.innerHTML = '';
+
+                // 1. 注入本地音乐 "专辑"
+                if (state.playlist.length > 0) {
+                    const localAlbum = document.createElement('div');
+                    const isLocalActive = (state.activeAlbumId === 'local');
+                    localAlbum.className = `p-3 rounded-lg cursor-pointer transition-all duration-200 border border-transparent text-base hover:bg-white/10 hover:border-white/20 text-gray-200 ${isLocalActive ? 'font-bold bg-white/20' : ''}`;
+                    if (isLocalActive) {
+                        localAlbum.style.color = 'var(--primary)';
+                    }
+                    localAlbum.innerText = t('playlist_local_tracks'); // "本地音乐"
+                    localAlbum.dataset.albumId = 'local';
+                    localAlbum.onclick = () => selectLocalAlbum();
+                    el.albumList.appendChild(localAlbum);
+                }
+
+                // 2. 渲染云端专辑
+                const albumNodes = document.querySelectorAll('.myhkplaylist .album-list ul li');
+                let cloudAlbumIsActive = false; // 标记是否有云端专辑处于播放状态
+
+                albumNodes.forEach((node, index) => {
+                    const item = document.createElement('div');
+                    const isCloudPlaying = node.classList.contains('myhknow');
+
+                    // 决定云端专辑是否 "视觉上" 激活
+                    // 只有在 "local" 专辑未激活时，云端专辑才能激活
+                    let isVisuallyActive = false;
+                    if (state.activeAlbumId !== 'local' && isCloudPlaying) {
+                        isVisuallyActive = true;
+                        cloudAlbumIsActive = true;
+                    }
+
+                    item.className = `p-3 rounded-lg cursor-pointer transition-all duration-200 border border-transparent text-base hover:bg-white/10 hover:border-white/20 text-gray-200 ${isVisuallyActive ? 'font-bold bg-white/20' : ''}`;
+                    if (isVisuallyActive) {
+                        item.style.color = 'var(--primary)';
+                    }
+
+                    item.innerText = node.innerText.replace("当前播放 > ", "");
+                    item.onclick = () => {
+                        resetLocalPlayer(); // 这会设置 activeAlbumId = null
+                        node.click();
+                        setTimeout(syncPlaylist, 500); // 刷新抽屉
+                    };
+                    el.albumList.appendChild(item);
+                });
+
+                // 3. 填充曲目列表 (#song-list)
+
+                // 3a. 如果本地专辑被选中
+                if (state.activeAlbumId === 'local') {
+                    state.playlist.forEach((track, index) => {
+                        const item = document.createElement('div');
+                        const isPlaying = (index === state.localIndex);
+
+                        item.className = `p-3 rounded-lg cursor-pointer transition-all duration-200 border border-transparent text-base hover:bg-white/10 hover:border-white/20 text-gray-200 ${isPlaying ? 'bg-white/20' : ''} playlist-item-local`; // 使用 local class
+                        item.dataset.filterName = `${track.name} ${track.artist}`.toLowerCase();
+
+                        item.innerHTML = `
+                          <div class="flex items-start gap-3">
+                              <span class="text-sm ${isPlaying ? 'text-primary' : 'text-gray-400'} w-4 flex-none pt-0.5">${index + 1}.</span>
+                              <div class="flex-1 min-w-0">
+                                  <div class="${isPlaying ? 'text-primary font-bold' : 'text-white'} truncate">${track.name}</div>
+                                  <div class="text-xs ${isPlaying ? 'text-primary/70' : 'text-gray-400'} truncate">${track.artist}</div>
+                              </div>
+                          </div>
+                        `;
+                        item.onclick = () => {
+                            playLocal(index, true); // 播放本地
+                            closePlaylist();
+                        };
+                        el.songList.appendChild(item);
+                    });
+                }
+                // 3b. 否则，如果一个云端专辑被选中
+                else if (cloudAlbumIsActive) {
+                    const songNodes = document.querySelectorAll('.myhkplaylist .song-list ul li');
+
+                    const activeAlbum = document.querySelector('.myhkplaylist .album-list ul li.myhknow');
+                    if (activeAlbum && songNodes.length === 0) {
+                        activeAlbum.click();
+                        setTimeout(syncPlaylist, 300);
+                        return;
+                    }
+
+                    songNodes.forEach((node, index) => {
+                        const item = document.createElement('div');
+                        const isPlaying = node.classList.contains('myhknow');
+
+                        const fullText = node.innerText;
+                        const parts = fullText.split('-');
+                        const songName = parts[0] ? parts[0].trim() : fullText;
+                        const artistName = parts.length > 1 ? parts.slice(1).join('-').trim() : '';
+
+                        item.className = `p-3 rounded-lg cursor-pointer transition-all duration-200 border border-transparent text-base hover:bg-white/10 hover:border-white/20 text-gray-200 ${isPlaying ? 'bg-white/20' : ''} playlist-item-cloud`; // 使用 cloud class
+                        item.dataset.filterName = `${songName} ${artistName}`.toLowerCase();
+
+                        item.innerHTML = `
+                          <div class="flex items-start gap-3">
+                              <span class="text-sm ${isPlaying ? 'text-primary' : 'text-gray-400'} w-4 flex-none pt-0.5">${index + 1}.</span>
+                              <div class="flex-1 min-w-0">
+                                  <div class="${isPlaying ? 'text-primary font-bold' : 'text-white'} truncate">${songName}</div>
+                                  ${artistName ? `<div class="text-xs ${isPlaying ? 'text-primary/70' : 'text-gray-400'} truncate">${artistName}</div>` : ''}
+                              </div>
+                          </div>
+                        `;
+
+                        item.onclick = () => {
+                            resetLocalPlayer();
+                            node.click();
+                            closePlaylist();
+                        };
+                        el.songList.appendChild(item);
+                    });
+                }
+                // 3c. 否则 (刚加载，没有选中)，曲目列表为空
+
+                console.log(t('alert_playlist_synced'));
+            } catch (e) {
+                console.error("Playlist sync failed:", e);
+                el.albumList.innerHTML = `<p class="text-xs text-red-500">${t('alert_playlist_fail')}</p>`;
+            }
+        }
+
+
+        // (Enh 2) 新增：加载单独文件
+        function handleFileImport(input) {
+            // 累加，不清除 state.playlist
+            const files = Array.from(input.files);
+            const audioFiles = files.filter(f =>
+                f.type.startsWith('audio/') ||
+                /\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(f.name)
+            );
+
+            audioFiles.forEach(f => {
+                state.playlist.push({
+                    name: f.name.replace(/\.[^/.]+$/, ""),
+                    url: URL.createObjectURL(f),
+                    lrc: "",
+                    cover: null,
+                    artist: t('alert_local_artist'),
+                    isLocalFile: true // 标记
+                });
+            });
+
+            // renderLocalPlaylistToDrawer(); // (Request 1) 移除
+            syncPlaylist(); // (Request 1) 更新抽屉
+            input.value = null;
+        }
+
+        // (Enh 1) 修改：加载文件夹（累加）
+        function handleFolderImport(input) {
+            // state.playlist = []; // (Enh 1) 移除此行，使其变为累加
+            const files = Array.from(input.files);
+            const audioFiles = files.filter(f =>
+                f.type.startsWith('audio/') ||
+                /\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(f.name)
+            );
+
+            audioFiles.forEach(f => {
+                state.playlist.push({
+                    name: f.name.replace(/\.[^/.]+$/, ""),
+                    url: URL.createObjectURL(f),
+                    lrc: "",
+                    cover: null,
+                    artist: t('alert_local_artist'),
+                    isLocalFolder: true
+                });
+            });
+
+            // renderLocalPlaylistToDrawer(); // (Request 1) 移除
+            syncPlaylist(); // (Request 1) 更新抽屉
+            if (state.playlist.length > 0 && state.localIndex === -1 && audioFiles.length > 0) {
+                // 如果当前没在播放本地音乐，自动播放新添加的
+                playLocal(state.playlist.length - audioFiles.length, true);
+            }
+            input.value = null;
+        }
+
+        function playLocal(idxOffset, absolute = false) {
+            state.activeAlbumId = 'local'; // (Request 1)
+            if (state.playlist.length === 0) return;
+
+            let newIdx = absolute ? idxOffset : state.localIndex + idxOffset;
+            if (newIdx >= state.playlist.length) newIdx = 0;
+            if (newIdx < 0) newIdx = state.playlist.length - 1;
+
+            state.localIndex = newIdx;
+            const track = state.playlist[newIdx];
+
+            audioObj.src = track.url;
+            el.title.innerText = track.name;
+            el.artist.innerText = track.artist || t('alert_local_artist');
+
+            let coverUrl = 'https://tu.ltyuanfang.cn/api/fengjing.php'; // 默认封面
+            if (track.cover) {
+                coverUrl = track.cover;
+            }
+
+            el.coverImg.src = coverUrl;
+            updateDynamicBackground(coverUrl);
+
+            audioObj.play();
+
+            if (track.lrc) {
+                showLocalNoLyrics(track); // (TODO: 解析LRC)
+            } else {
+                showLocalNoLyrics(track);
+            }
+
+            el.ssSongInfo.innerText = `${track.name} - ${track.artist || t('alert_local_artist')}`;
+            syncPlaylist(); // (Request 1) 更新抽屉高亮
+
+            // (Req 4) 更新本地音乐的 MediaSession
+            updateMediaSession({
+                title: track.name,
+                artist: track.artist || t('alert_local_artist'),
+                artwork: coverUrl
+            });
+        }
+
+        // (Request 1) 新增：选择本地专辑
+        function selectLocalAlbum() {
+            state.activeAlbumId = 'local';
+            syncPlaylist(); // 重新渲染抽屉
+        }
+
+        // (Request 1) 移除 renderLocalPlaylistToDrawer()
+
+        // (Enh 4) (Request 1) 更新：播放列表搜索功能
+        function filterPlaylist(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            // 1. 过滤专辑 (现在包含 "本地音乐")
+            const albums = el.albumList.querySelectorAll('.p-3');
+            albums.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                item.classList.toggle('hidden', !text.includes(searchTerm));
+            });
+
+            // 2. 过滤曲目 (云端和本地都在 #song-list)
+            const songs = el.songList.querySelectorAll('.playlist-item-cloud, .playlist-item-local');
+            songs.forEach(item => {
+                const text = item.dataset.filterName || item.innerText.toLowerCase();
+                item.classList.toggle('hidden', !text.includes(searchTerm));
+            });
+        }
+
+
+        async function addBackgroundFromInput() { }
+        function handleBackgroundFileImport(input) { }
+        function processBgUrl(url, explicitType = null) { }
+        async function handlePaste() { }
+        function playCurrentBg() { }
+        function onVideoError() { }
+        function updateBg() { }
+        function renderBgGrid() { }
+
+        function showLyricPlaceholder(langKey) {
+            if (langKey === 'lyrics_no_lyrics' || langKey === 'lyrics_instrumental' || langKey === 'alert_local_no_lyrics') {
+                langKey = 'lyrics_pure_music';
+            }
+
+            el.lyricContent.innerHTML = `<p class="lyric-line active" style="font-size: 1.2rem;">${t(langKey)}</p>`;
+            if (state.lyricMode === 'all') {
+            }
+            el.ssLyric.innerText = t(langKey);
+            el.lyrics.dataset.liCount = "0";
+            activeLine = -1;
+        }
+
+        function showLocalNoLyrics(track) {
+            el.lyricContent.innerHTML = '<div class="lyric-spacer" style="height: 45vh;"></div>';
+
+            const titleLine = document.createElement('p');
+            titleLine.className = 'lyric-line active';
+            titleLine.innerText = track.name;
+            el.lyricContent.appendChild(titleLine);
+
+            const artistLine = document.createElement('p');
+            artistLine.className = 'lyric-line';
+            artistLine.innerText = track.artist || t('alert_local_artist');
+            artistLine.style.opacity = '1';
+            artistLine.style.filter = 'blur(0)';
+            artistLine.style.color = 'var(--lyric-inactive-color, rgba(255,255,255,0.4))';
+            artistLine.style.fontSize = 'var(--lyric-font-size, 1.1rem)';
+            el.lyricContent.appendChild(artistLine);
+
+            el.lyricContent.innerHTML += '<div class="lyric-spacer" style="height: 45vh;"></div>';
+
+            el.ssLyric.innerText = track.name;
+            el.lyrics.dataset.liCount = "2";
+            activeLine = -1;
+        }
+
+
+        function rebuildLyrics(allLIs) {
+            el.lyricContent.innerHTML = '<div class="lyric-spacer" style="height: 45vh;"></div>';
+            allLIs.forEach((li, index) => {
+                const line = document.createElement('p');
+                line.className = 'lyric-line';
+                line.dataset.index = index;
+                let text = li.innerText.trim();
+                if (text.includes("纯音乐") || text.includes("Instrumental")) {
+                    text = t('lyrics_pure_music');
+                }
+                line.innerText = text;
+                el.lyricContent.appendChild(line);
+            });
+            el.lyricContent.innerHTML += '<div class="lyric-spacer" style="height: 45vh;"></div>';
+            el.lyrics.dataset.liCount = allLIs.length;
+            activeLine = -1;
+        }
+
+        function syncLyrics() {
+            if (state.localIndex > -1) {
+                return;
+            }
+            if (!audioObj) return;
+
+            const allLIs = Array.from(document.querySelectorAll('#myhkLrc li'));
+            const liCount = allLIs.length;
+
+            if (liCount === 0) {
+                if (el.lyrics.dataset.liCount !== "0") {
+                    showLyricPlaceholder(audioObj.paused ? 'status_paused' : 'lyrics_no_lyrics');
+                }
+                return;
+            }
+
+            if (el.lyrics.dataset.liCount != liCount) {
+                rebuildLyrics(allLIs);
+                alignLyricContainer();
+            }
+
+            let newActiveIndex = -1;
+            const activeLi = document.querySelector('#myhkLrc li.myhknow');
+            if (activeLi) {
+                newActiveIndex = allLIs.indexOf(activeLi);
+            }
+
+            // 保持间奏期间上一句仍高亮：如果没有新的激活句，则不做变更
+            if (newActiveIndex === -1) {
+                return;
+            }
+
+            if (newActiveIndex !== activeLine) {
+                const allLines = el.lyricContent.querySelectorAll('.lyric-line');
+                const oldIndex = activeLine;
+                activeLine = newActiveIndex;
+
+                // 旧高亮快速淡出
+                if (oldIndex >= 0 && allLines[oldIndex]) {
+                    const oldLine = allLines[oldIndex];
+                    oldLine.classList.add('lyric-fade-fast');
+                    oldLine.classList.remove('active');
+                    setTimeout(() => oldLine.classList.remove('lyric-fade-fast'), 200);
+                }
+
+                // 新行高亮与滚动对齐
+                const line = allLines[activeLine];
+                if (line) {
+                    line.classList.add('active');
+                    if (!audioObj.paused) {
+                        el.ssLyric.innerText = line.innerText;
+                    }
+                    if (state.lyricMode === 'all') {
+                        const scrollerRect = el.lyricScroller.getBoundingClientRect();
+                        const lineRect = line.getBoundingClientRect();
+                        const offset = (lineRect.top - scrollerRect.top) - (scrollerRect.height / 2) + (lineRect.height / 2) + el.lyricScroller.scrollTop;
+                        el.lyricScroller.scrollTo({ top: offset, behavior: 'smooth' });
+                    }
+                }
+
+                // 清理其他行的active，避免异常残留
+                allLines.forEach((l, idx) => {
+                    if (idx !== activeLine) l.classList.remove('active');
+                });
+            }
+        }
+
+        function formatTime(s) {
+            if (isNaN(s)) return "00:00";
+            return new Date(s * 1000).toISOString().substr(14, 5);
+        }
+
+        function openDrawer() { el.drawer.classList.remove('translate-x-full'); }
+        function closeDrawer() { el.drawer.classList.add('translate-x-full'); }
+        function openPlaylist() { el.playlistDrawer.classList.remove('-translate-x-full'); syncPlaylist(); }
+        function closePlaylist() { el.playlistDrawer.classList.add('-translate-x-full'); }
+
+        // (Req 2) 拆分屏保显示/隐藏逻辑
+        function showScreensaver() {
+            if (!el.video.paused) {
+                state.videoWasPlaying = true;
+                el.video.pause();
+            }
+            if (state.imageAnimation && !el.image.classList.contains('opacity-0')) {
+                state.imageWasAnimating = true;
+                el.image.style.animationPlayState = 'paused';
+            }
+
+            el.ss.classList.remove('opacity-0', 'pointer-events-none');
+            el.ss.classList.add('opacity-100', 'pointer-events-auto');
+        }
+
+        function hideScreensaver() {
+            if (state.videoWasPlaying) {
+                el.video.play().catch(e => console.log("Video resume blocked"));
+                state.videoWasPlaying = false;
+            }
+            if (state.imageWasAnimating) {
+                el.image.style.animationPlayState = 'running';
+                state.imageWasAnimating = false;
+            }
+
+            el.ss.classList.remove('opacity-100', 'pointer-events-auto');
+            el.ss.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        // (Req 2) 重写 Idle 逻辑
+        function resetIdle() {
+            clearTimeout(idleTimer);
+
+            // 如果常驻模式开启，则立即显示屏保并返回
+            if (state.persistentScreensaverEnabled) {
+                showScreensaver();
+                return;
+            }
+
+            // 如果屏保当前是亮的（非T常驻模式），则隐藏它
+            if (el.ss.classList.contains('opacity-100')) {
+                hideScreensaver();
+            }
+
+            // 如果屏保总开关是开的（非T常驻模式），设置定时器
+            if (state.screensaverEnabled) {
+                idleTimer = setTimeout(showScreensaver, 60000);
+            }
+        }
+
+        function initClock() {
+            const update = () => {
+                const now = new Date();
+                document.getElementById('ss-clock').innerText = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                document.getElementById('ss-date').innerText = now.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'long' });
+                try {
+                    if (window.Intl) {
+                        const lunar = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', { dateStyle: 'full' }).format(now);
+                        document.getElementById('ss-lunar').innerText = lunar.split('年')[1] || "";
+                    }
+                } catch (e) { }
+
+                if (state.persistentClockEnabled) {
+                    el.persistentClockTime.innerText = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    el.persistentClockDate.innerText = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+                }
+            };
+            setInterval(update, 1000);
+            update();
+        }
+
+        function saveSettings() {
+            localStorage.setItem('aether_v3_settings', JSON.stringify({
+                lyricPanelBg: state.lyricPanelBg,
+                lyricMode: state.lyricMode,
+                screensaverEnabled: state.screensaverEnabled,
+                persistentScreensaverEnabled: state.persistentScreensaverEnabled, // (Req 2)
+                bgAnimationMode: state.bgAnimationMode,
+                bgStyle: state.bgStyle, // Save bgStyle
+                lyricFont: state.lyricFont,
+                bgAnimationEnabled: state.bgAnimationEnabled,
+                persistentClockEnabled: state.persistentClockEnabled,
+                inactiveLyricVisibility: state.inactiveLyricVisibility,
+                animIntensity: state.animIntensity,
+                lyricFontSize: state.lyricFontSize,
+                lyricOffsetX: state.lyricOffsetX,
+                coverOffsetX: state.coverOffsetX,
+                lyricOffsetY: state.lyricOffsetY, // (Req 3)
+                coverOffsetY: state.coverOffsetY, // (Req 3)
+                randomAnimDuration: state.randomAnimDuration,
+                myhkwKey: state.myhkwKey,
+                // activeAlbumId: state.activeAlbumId, // (Request 1) 最好不要保存这个
+            }));
+        }
+        function loadSettings() {
+            const d = localStorage.getItem('aether_v3_settings');
+
+            if (d) {
+                const p = JSON.parse(d);
+
+                if (p.screensaverEnabled !== undefined) {
+                    state.screensaverEnabled = p.screensaverEnabled;
+                    el.toggleScreensaver.checked = p.screensaverEnabled;
+                } else {
+                    state.screensaverEnabled = true;
+                    el.toggleScreensaver.checked = true;
+                }
+
+                // (Req 2) 加载常驻屏保设置
+                if (p.persistentScreensaverEnabled !== undefined) {
+                    state.persistentScreensaverEnabled = p.persistentScreensaverEnabled;
+                    el.togglePersistentScreensaver.checked = p.persistentScreensaverEnabled;
+                }
+                // (Req 2) 根据主开关显示/隐藏常驻开关
+                document.getElementById('persistent-screensaver-container').classList.toggle('hidden', !state.screensaverEnabled);
+
+
+                if (p.lyricPanelBg !== undefined) {
+                    setLyricPanelBg(p.lyricPanelBg);
+                    el.toggleLyricPanelBg.checked = p.lyricPanelBg;
+                } else {
+                    setLyricPanelBg(true);
+                    el.toggleLyricPanelBg.checked = true;
+                }
+                if (p.lyricMode) {
+                    setLyricMode(p.lyricMode);
+                } else {
+                    setLyricMode('all');
+                }
+
+                if (p.bgAnimationEnabled !== undefined) {
+                    state.bgAnimationEnabled = p.bgAnimationEnabled;
+                } else {
+                    state.bgAnimationEnabled = true;
+                }
+                el.toggleBgAnimation.checked = !state.bgAnimationEnabled;
+
+                if (p.bgAnimationMode && p.bgAnimationMode !== 'none') {
+                    state.bgAnimationMode = p.bgAnimationMode; // Just set state, don't apply yet
+                } else {
+                    state.bgAnimationMode = 'random';
+                }
+
+                if (p.bgStyle) {
+                    setBackgroundStyle(p.bgStyle);
+                } else {
+                    setBackgroundStyle('gradient'); // Default
+                }
+
+                if (p.lyricFont) {
+                    applyLyricFont(p.lyricFont);
+                } else {
+                    applyLyricFont('noto-sc');
+                }
+
+                if (p.persistentClockEnabled !== undefined) {
+                    el.togglePersistentClock.checked = p.persistentClockEnabled;
+                    setPersistentClock(p.persistentClockEnabled);
+                }
+
+                if (p.inactiveLyricVisibility !== undefined) {
+                    setInactiveLyricVisibility(p.inactiveLyricVisibility);
+                } else {
+                    setInactiveLyricVisibility(6);
+                }
+
+                if (p.animIntensity !== undefined) {
+                    setAnimationIntensity(p.animIntensity);
+                } else {
+                    setAnimationIntensity(1.0);
+                }
+
+                const oldFontSize = localStorage.getItem('aether_font_size');
+                if (p.lyricFontSize) {
+                    changeFontSize(p.lyricFontSize);
+                } else if (oldFontSize) {
+                    changeFontSize(parseFloat(oldFontSize));
+                    localStorage.removeItem('aether_font_size');
+                } else {
+                    changeFontSize(3.0);
+                }
+
+                if (p.lyricOffsetX !== undefined) {
+                    setLyricOffset(p.lyricOffsetX);
+                } else {
+                    setLyricOffset(0);
+                }
+
+                if (p.coverOffsetX !== undefined) {
+                    setCoverOffset(p.coverOffsetX);
+                } else {
+                    setCoverOffset(0);
+                }
+
+                // (Req 3) 加载Y轴设置
+                if (p.lyricOffsetY !== undefined) {
+                    setLyricOffset_Y(p.lyricOffsetY);
+                } else {
+                    setLyricOffset_Y(0);
+                }
+                document.documentElement.style.setProperty('--lyric-offset-y', `${state.lyricOffsetY}px`);
+
+                if (p.coverOffsetY !== undefined) {
+                    setCoverOffset_Y(p.coverOffsetY);
+                } else {
+                    setCoverOffset_Y(0);
+                }
+                document.documentElement.style.setProperty('--cover-offset-y', `${state.coverOffsetY}px`);
+
+
+                if (p.randomAnimDuration !== undefined) {
+                    setRandomAnimDuration(p.randomAnimDuration);
+                } else {
+                    setRandomAnimDuration(15);
+                }
+
+                if (p.myhkwKey !== undefined) {
+                    state.myhkwKey = p.myhkwKey;
+                } else {
+                    state.myhkwKey = null;
+                }
+            }
+
+            if (!d) {
+                // (Req 3) 初始化Y轴
+                setLyricPanelBg(state.lyricPanelBg);
+                setLyricMode(state.lyricMode);
+                setBackgroundStyle('gradient'); // Default
+                // applyBackgroundAnimation(state.bgAnimationMode); // handled by setBackgroundStyle
+                applyLyricFont(state.lyricFont);
+                setInactiveLyricVisibility(state.inactiveLyricVisibility);
+                setAnimationIntensity(1.0);
+                changeFontSize(3.0);
+                setLyricOffset(0);
+                setCoverOffset(0);
+                setLyricOffset_Y(0);
+                setCoverOffset_Y(0);
+                setRandomAnimDuration(15);
+                state.myhkwKey = null;
+
+                document.documentElement.style.setProperty('--lyric-offset-y', `0px`);
+                document.documentElement.style.setProperty('--cover-offset-y', `0px`);
+            }
+        }
+        function resetAll() {
+            localStorage.clear();
+            location.reload();
+        }
+
+    </script>
+
+    <!-- (Myhkw Player Engine) -->
+    <!-- (新) 已移除静态脚本，将由 JS 动态加载 -->
+</body>
+
+</html>
