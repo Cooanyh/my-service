@@ -38,7 +38,7 @@
             --glass-border: rgba(255, 255, 255, 0.08);
             --inactive-lyric: rgba(255, 255, 255, 0.35);
 
-            /* (新) 歌词大小 */
+            /* 歌词大小 */
             --lyric-font-size: 1.1rem;
             --lyric-font-size-active: 1.6rem;
 
@@ -54,12 +54,14 @@
             --font-zcool-xw: 'ZCOOL XiaoWei', serif;
             --lyric-font-family: var(--font-noto-sc);
 
-            /* (新) 动效强度 */
+            /* 动效强度 */
             --anim-intensity: 1.0;
-            /* (新) 歌词/封面 水平位置 */
+            /* 颗粒度 */
+            --bg-graininess: 0.65;
+            /* 歌词/封面 水平位置 */
             --lyric-offset-x: 0px;
             --cover-offset-x: 0px;
-            /* (Req 3) 新增Y轴偏移量 */
+            /* Y轴偏移量 */
             --lyric-offset-y: 0px;
             --cover-offset-y: 0px;
         }
@@ -298,7 +300,8 @@
             border-radius: 50%;
             filter: blur(80px);
             opacity: 0.6;
-            animation: float-orb 20s infinite ease-in-out alternate;
+            /* Use calc for duration based on intensity. Clamp intensity to avoid div by zero or extreme speeds */
+            animation: float-orb calc(20s / max(0.2, var(--anim-intensity))) infinite ease-in-out alternate;
             will-change: transform, opacity;
         }
 
@@ -333,6 +336,7 @@
         #noise-overlay {
             position: absolute;
             inset: 0;
+            /* Initial noise, will be updated by JS */
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
             pointer-events: none;
             z-index: 1;
@@ -344,11 +348,11 @@
             }
 
             33% {
-                transform: translate(5%, 10%) scale(1.1);
+                transform: translate(calc(5% * var(--anim-intensity)), calc(10% * var(--anim-intensity))) scale(1.1);
             }
 
             66% {
-                transform: translate(-5%, 5%) scale(0.9);
+                transform: translate(calc(-5% * var(--anim-intensity)), calc(5% * var(--anim-intensity))) scale(0.9);
             }
 
             100% {
@@ -449,7 +453,7 @@
             -webkit-backdrop-filter: none;
         }
 
-        /* (Req 3) 封面/歌名 Y轴偏移 */
+        /* 封面/歌名 Y轴偏移 */
         #left-column-content {
             transform: translate(var(--cover-offset-x), var(--cover-offset-y));
             transition: transform 0.3s ease-out;
@@ -1177,6 +1181,20 @@
                         </div>
                     </div>
 
+                    <!-- (新) 颗粒度 (仅流光氛围) -->
+                    <div id="graininess-control" class="flex justify-between items-center mb-4 hidden">
+                        <label class="text-sm text-gray-300" data-lang="settings_graininess">Graininess</label>
+                        <div class="flex items-center gap-2">
+                            <input type="range" id="graininess-slider" min="0" max="1" step="0.05" value="0.65"
+                                class="w-28 h-1.5 cursor-pointer">
+                            <button id="reset-graininess"
+                                class="w-7 h-7 rounded bg-white/10 flex items-center justify-center hover:bg-white/20"
+                                title="Reset">
+                                <i class="fas fa-undo text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- (新) 封面水平位置 -->
                     <div class="flex justify-between items-center mb-4">
                         <label class="text-sm text-gray-300" data-lang="settings_cover_offset">Cover Position
@@ -1584,6 +1602,7 @@
             persistentClockEnabled: false,
             inactiveLyricVisibility: 6,
             animIntensity: 1.0,
+            graininess: 0.65, // New
             lyricFontSize: 3.0,
             lyricOffsetX: 0,
             coverOffsetX: 0,
@@ -1633,6 +1652,7 @@
                     bg_anim_brightness_pulse: "Brightness Pulse",
                     settings_bg_random_duration: "Random Duration (s)",
                     settings_anim_intensity: "Animation Intensity",
+                    settings_graininess: "Graininess", // New
                     settings_cover_offset: "Cover Position (X)",
                     settings_cover_offset_y: "Cover Position (Y)", // (Req 3) 新增
                     settings_bg_animation_toggle: "Disable Animation",
@@ -1744,6 +1764,7 @@
                     bg_anim_brightness_pulse: "亮度脉冲",
                     settings_bg_random_duration: "随机时长 (秒)",
                     settings_anim_intensity: "动效强度",
+                    settings_graininess: "背景颗粒度", // New
                     settings_cover_offset: "封面位置 (X)",
                     settings_cover_offset_y: "封面位置 (Y)", // (Req 3) 新增
                     settings_bg_animation_toggle: "关闭动效",
@@ -1894,6 +1915,9 @@
             // (新)
             animIntensitySlider: document.getElementById('anim-intensity-slider'),
             resetAnimIntensity: document.getElementById('reset-anim-intensity'),
+            graininessControl: document.getElementById('graininess-control'), // New
+            graininessSlider: document.getElementById('graininess-slider'), // New
+            resetGraininess: document.getElementById('reset-graininess'), // New
             lyricOffsetSlider: document.getElementById('lyric-offset-slider'),
             resetLyricOffset: document.getElementById('reset-lyric-offset'),
             coverOffsetSlider: document.getElementById('cover-offset-slider'),
@@ -2131,6 +2155,8 @@
                 if (el.coverImg.src && el.coverImg.src !== "") {
                     updateDynamicBackground(el.coverImg.src);
                 }
+                // Show Graininess Control
+                if (el.graininessControl) el.graininessControl.classList.remove('hidden');
             } else {
                 // style === 'gradient'
                 // Hide Immersive
@@ -2141,6 +2167,9 @@
 
                 // Show Gradient Options
                 if (el.gradientOptionsContainer) el.gradientOptionsContainer.style.display = 'flex';
+
+                // Hide Graininess Control
+                if (el.graininessControl) el.graininessControl.classList.add('hidden');
 
                 // Re-apply current gradient animation
                 applyBackgroundAnimation(state.bgAnimationMode || 'random');
@@ -2252,6 +2281,22 @@
             state.animIntensity = level;
             document.documentElement.style.setProperty('--anim-intensity', level.toFixed(2));
             el.animIntensitySlider.value = level;
+            saveSettings();
+        }
+
+        function setGraininess(value) {
+            value = parseFloat(value);
+            state.graininess = value;
+            // Update SVG filter
+            const svgData = `data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='${value}' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E`;
+
+            const noiseOverlay = document.getElementById('noise-overlay');
+            if (noiseOverlay) {
+                noiseOverlay.style.backgroundImage = `url("${svgData}")`;
+            }
+            if (el.graininessSlider) {
+                el.graininessSlider.value = value;
+            }
             saveSettings();
         }
 
@@ -2413,6 +2458,9 @@
 
             el.animIntensitySlider.oninput = (e) => setAnimationIntensity(e.target.value);
             el.resetAnimIntensity.onclick = () => setAnimationIntensity(1.0);
+
+            el.graininessSlider.oninput = (e) => setGraininess(e.target.value);
+            el.resetGraininess.onclick = () => setGraininess(0.65);
 
             el.lyricOffsetSlider.oninput = (e) => setLyricOffset(e.target.value);
             el.resetLyricOffset.onclick = () => setLyricOffset(0);
@@ -2926,7 +2974,7 @@
             }
         }
 
-        // (Bug 2) 新的重置函数
+        // (Bug 2) 重置函数
         function resetLocalPlayer() {
             state.activeAlbumId = null; // (Request 1)
             if (state.localIndex === -1) return; // 已经在播放云端
@@ -2935,8 +2983,8 @@
             // renderLocalPlaylistToDrawer(); // (Request 1) 移除，由 syncPlaylist() 处理
 
             // 强制 myhkw 将其状态同步到UI
-            // 这是关键部分。
-            // 我们需要重新触发在本地播放时被禁用的同步逻辑。
+            // 关键部分。
+            // 需要重新触发在本地播放时被禁用的同步逻辑。
             updateSongInfo(); // 现在将运行
             syncLyrics(); // 现在将运行
 
@@ -3011,7 +3059,7 @@
             el.ssSongInfo.innerText = `${el.title.innerText} - ${el.artist.innerText}`;
         }
 
-        // (Req 4) 新增: 更新系统媒体控件
+        // (Req 4) 更新系统媒体控件
         function updateMediaSession(metadata = {}) {
             if (!('mediaSession' in navigator)) {
                 return;
@@ -3173,7 +3221,7 @@
         }
 
 
-        // (Enh 2) 新增：加载单独文件
+        // (Enh 2) 加载单独文件
         function handleFileImport(input) {
             // 累加，不清除 state.playlist
             const files = Array.from(input.files);
@@ -3194,11 +3242,11 @@
             });
 
             // renderLocalPlaylistToDrawer(); // (Request 1) 移除
-            syncPlaylist(); // (Request 1) 更新抽屉
+            syncPlaylist(); // (Request 1) 抽屉
             input.value = null;
         }
 
-        // (Enh 1) 修改：加载文件夹（累加）
+        // (Enh 1) 加载文件夹（累加）
         function handleFolderImport(input) {
             // state.playlist = []; // (Enh 1) 移除此行，使其变为累加
             const files = Array.from(input.files);
@@ -3219,7 +3267,7 @@
             });
 
             // renderLocalPlaylistToDrawer(); // (Request 1) 移除
-            syncPlaylist(); // (Request 1) 更新抽屉
+            syncPlaylist(); // (Request 1) 抽屉
             if (state.playlist.length > 0 && state.localIndex === -1 && audioFiles.length > 0) {
                 // 如果当前没在播放本地音乐，自动播放新添加的
                 playLocal(state.playlist.length - audioFiles.length, true);
@@ -3259,9 +3307,9 @@
             }
 
             el.ssSongInfo.innerText = `${track.name} - ${track.artist || t('alert_local_artist')}`;
-            syncPlaylist(); // (Request 1) 更新抽屉高亮
+            syncPlaylist(); // (Request 1) 抽屉高亮
 
-            // (Req 4) 更新本地音乐的 MediaSession
+            // (Req 4) 本地音乐的 MediaSession
             updateMediaSession({
                 title: track.name,
                 artist: track.artist || t('alert_local_artist'),
@@ -3269,7 +3317,7 @@
             });
         }
 
-        // (Request 1) 新增：选择本地专辑
+        // (Request 1) 选择本地专辑
         function selectLocalAlbum() {
             state.activeAlbumId = 'local';
             syncPlaylist(); // 重新渲染抽屉
@@ -3277,7 +3325,7 @@
 
         // (Request 1) 移除 renderLocalPlaylistToDrawer()
 
-        // (Enh 4) (Request 1) 更新：播放列表搜索功能
+        // (Enh 4) (Request 1) 播放列表搜索功能
         function filterPlaylist(e) {
             const searchTerm = e.target.value.toLowerCase().trim();
 
@@ -3468,7 +3516,7 @@
             el.ss.classList.add('opacity-0', 'pointer-events-none');
         }
 
-        // (Req 2) 重写 Idle 逻辑
+        // (Req 2) Idle 逻辑
         function resetIdle() {
             clearTimeout(idleTimer);
 
@@ -3523,6 +3571,7 @@
                 persistentClockEnabled: state.persistentClockEnabled,
                 inactiveLyricVisibility: state.inactiveLyricVisibility,
                 animIntensity: state.animIntensity,
+                graininess: state.graininess, // New
                 lyricFontSize: state.lyricFontSize,
                 lyricOffsetX: state.lyricOffsetX,
                 coverOffsetX: state.coverOffsetX,
@@ -3585,7 +3634,7 @@
                 if (p.bgStyle) {
                     setBackgroundStyle(p.bgStyle);
                 } else {
-                    setBackgroundStyle('gradient'); // Default
+                    setBackgroundStyle('immersive'); // Default changed to immersive
                 }
 
                 if (p.lyricFont) {
@@ -3609,6 +3658,12 @@
                     setAnimationIntensity(p.animIntensity);
                 } else {
                     setAnimationIntensity(1.0);
+                }
+
+                if (p.graininess !== undefined) {
+                    setGraininess(p.graininess);
+                } else {
+                    setGraininess(0.65);
                 }
 
                 const oldFontSize = localStorage.getItem('aether_font_size');
@@ -3666,11 +3721,12 @@
                 // (Req 3) 初始化Y轴
                 setLyricPanelBg(state.lyricPanelBg);
                 setLyricMode(state.lyricMode);
-                setBackgroundStyle('gradient'); // Default
+                setBackgroundStyle('immersive'); // Default changed to immersive
                 // applyBackgroundAnimation(state.bgAnimationMode); // handled by setBackgroundStyle
                 applyLyricFont(state.lyricFont);
                 setInactiveLyricVisibility(state.inactiveLyricVisibility);
                 setAnimationIntensity(1.0);
+                setGraininess(0.65);
                 changeFontSize(3.0);
                 setLyricOffset(0);
                 setCoverOffset(0);
@@ -3691,7 +3747,7 @@
     </script>
 
     <!-- (Myhkw Player Engine) -->
-    <!-- (新) 已移除静态脚本，将由 JS 动态加载 -->
+    <!-- 已移除静态脚本，将由 JS 动态加载 -->
 </body>
 
 </html>
