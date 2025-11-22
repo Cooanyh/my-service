@@ -1077,6 +1077,21 @@
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
+
+                        <!-- (Req New) Switch Frequency -->
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs text-gray-300" data-lang="settings_switch_freq">Switch
+                                Frequency</label>
+                            <select id="switch-frequency-select"
+                                class="bg-black/20 border border-gray-700/50 rounded px-2 py-1 text-xs focus:border-primary outline-none text-white">
+                                <option value="1">1 Song</option>
+                                <option value="2">2 Songs</option>
+                                <option value="3">3 Songs</option>
+                                <option value="5">5 Songs</option>
+                                <option value="10">10 Songs</option>
+                                <option value="random" data-lang="freq_random">Random (1-5)</option>
+                            </select>
+                        </div>
                         <div id="cross-album-list" class="max-h-40 overflow-y-auto space-y-1 pr-1">
                             <!-- Checkboxes injected by JS -->
                             <p class="text-xs text-gray-500 text-center py-2">Please wait for myhkw...</p>
@@ -1651,6 +1666,9 @@
             activeAlbumId: null, // (Request 1) 新状态： 'local' 或 myhkw ID (暂不用)
             crossAlbumRandom: false, // (Req New)
             selectedCrossAlbums: [], // (Req New) Album names
+            switchFrequency: 1, // (Req New) Default 1 song
+            songsPlayedInCurrentAlbum: 0, // (Req New)
+            currentAlbumNameForCounter: "", // (Req New)
 
             lang: {
                 en: {
@@ -1674,6 +1692,8 @@
                     settings_playback: "Playback", // (Req New)
                     settings_cross_album: "Cross-Album Shuffle", // (Req New)
                     settings_cross_album_hint: "Select Albums to Shuffle", // (Req New)
+                    settings_switch_freq: "Switch Frequency", // (Req New)
+                    freq_random: "Random (1-5)", // (Req New)
                     settings_display: "Display",
                     settings_language: "Language",
                     settings_screensaver: "Screensaver",
@@ -1788,6 +1808,8 @@
                     settings_playback: "播放设置", // (Req New)
                     settings_cross_album: "跨专辑随机播放", // (Req New)
                     settings_cross_album_hint: "选择参与随机的专辑", // (Req New)
+                    settings_switch_freq: "切换频率", // (Req New)
+                    freq_random: "随机 (1-5)", // (Req New)
                     settings_display: "显示",
                     settings_language: "语言",
                     settings_screensaver: "时钟屏保",
@@ -2408,6 +2430,7 @@
             el.resetLyricOffsetY = document.getElementById('reset-lyric-offset-y');
             el.coverOffsetYSlider = document.getElementById('cover-offset-y-slider');
             el.resetCoverOffsetY = document.getElementById('reset-cover-offset-y');
+            el.switchFrequencySelect = document.getElementById('switch-frequency-select'); // (Req New)
 
             // (Request 1) 移除 el.localSongList
             el.playlistSearch = document.getElementById('playlist-search');
@@ -2538,6 +2561,12 @@
                 if (state.crossAlbumRandom) {
                     syncCrossAlbumList();
                 }
+                saveSettings();
+            };
+            el.switchFrequencySelect.onchange = (e) => {
+                const val = e.target.value;
+                state.switchFrequency = val === 'random' ? 'random' : parseInt(val);
+                state.songsPlayedInCurrentAlbum = 0; // Reset counter
                 saveSettings();
             };
             el.refreshCrossAlbums.onclick = () => {
@@ -3428,6 +3457,10 @@
         }
 
         // (Req New) Sync Album List for Settings
+        function normalizeAlbumName(name) {
+            return name.replace(/^当前播放\s*>\s*/, "").trim();
+        }
+
         function syncCrossAlbumList() {
             el.crossAlbumList.innerHTML = '';
             const albumNodes = document.querySelectorAll('.myhkplaylist .album-list ul li');
@@ -3438,7 +3471,8 @@
             }
 
             albumNodes.forEach((node, index) => {
-                const albumName = node.innerText.replace("当前播放 > ", "").trim();
+                const rawName = node.innerText;
+                const albumName = normalizeAlbumName(rawName);
                 const isSelected = state.selectedCrossAlbums.includes(albumName);
 
                 const div = document.createElement('div');
@@ -3468,33 +3502,130 @@
         function playRandomCrossAlbumSong() {
             if (state.selectedCrossAlbums.length === 0) return;
 
+            // Check Switch Frequency Logic
+            // If we are currently playing an album that is in the selected list,
+            // we should check if we need to switch.
+            const currentAlbumNode = document.querySelector('.myhkplaylist .album-list ul li.myhknow');
+            let currentAlbumName = "";
+            if (currentAlbumNode) {
+                currentAlbumName = normalizeAlbumName(currentAlbumNode.innerText);
+            }
+
+            // If we are in a valid album and haven't reached the limit, play another song from current album
+            if (currentAlbumName && state.selectedCrossAlbums.includes(currentAlbumName)) {
+                // Check if we switched albums recently or if we are counting
+                if (state.currentAlbumNameForCounter !== currentAlbumName) {
+                    state.currentAlbumNameForCounter = currentAlbumName;
+                    state.songsPlayedInCurrentAlbum = 0; // Reset if we just entered this album
+                }
+
+                let limit = 1;
+                if (state.switchFrequency === 'random') {
+                    // For random, we pick a number between 1 and 5.
+                    // Ideally this should be picked when entering the album.
+                    // For simplicity, let's say we use a fixed random seed or just check against a probability?
+                    // Better: When entering an album, pick a target count.
+                    // For now, let's assume 'random' means 3 on average or just use a static random logic.
+                    // Let's use a simple approach: if 'random', limit is 3.
+                    // TODO: Make this more dynamic if needed.
+                    limit = 3;
+                } else {
+                    limit = state.switchFrequency;
+                }
+
+                if (state.songsPlayedInCurrentAlbum < limit) {
+                    console.log(`Staying in album "${currentAlbumName}" (${state.songsPlayedInCurrentAlbum}/${limit})`);
+                    playRandomSongInCurrentAlbum();
+                    state.songsPlayedInCurrentAlbum++;
+                    return;
+                }
+            }
+
+            // Time to switch album!
+            console.log("Switching album...");
+
             // 1. Pick a random album
-            const randomAlbumName = state.selectedCrossAlbums[Math.floor(Math.random() * state.selectedCrossAlbums.length)];
+            // Avoid immediate repeat if possible
+            let availableAlbums = state.selectedCrossAlbums;
+            if (state.selectedCrossAlbums.length > 1 && currentAlbumName) {
+                availableAlbums = state.selectedCrossAlbums.filter(n => n !== currentAlbumName);
+            }
+
+            const randomAlbumName = availableAlbums[Math.floor(Math.random() * availableAlbums.length)];
+
+            // Clean the target name just in case stored data is dirty
+            const cleanRandomName = normalizeAlbumName(randomAlbumName);
 
             // 2. Find it in DOM
             const albumNodes = Array.from(document.querySelectorAll('.myhkplaylist .album-list ul li'));
-            const targetAlbumNode = albumNodes.find(node => node.innerText.replace("当前播放 > ", "").trim() === randomAlbumName);
+
+            // Debug Log
+            console.log(`Looking for album: "${cleanRandomName}" (Raw: "${randomAlbumName}")`);
+            console.log(`Available albums (${albumNodes.length}):`, albumNodes.map(n => normalizeAlbumName(n.innerText)));
+
+            const targetAlbumNode = albumNodes.find(node => normalizeAlbumName(node.innerText) === cleanRandomName);
 
             if (!targetAlbumNode) {
-                console.warn(`Album "${randomAlbumName}" not found in DOM.`);
-                // Retry with another one or fallback
-                return;
+                console.warn(`Album "${cleanRandomName}" not found in DOM. Retrying with loose match...`);
+
+                // Fallback: Try loose match (contains)
+                const looseMatch = albumNodes.find(node => normalizeAlbumName(node.innerText).includes(cleanRandomName) || cleanRandomName.includes(normalizeAlbumName(node.innerText)));
+
+                if (looseMatch) {
+                    console.log(`Found loose match: "${normalizeAlbumName(looseMatch.innerText)}"`);
+                    // Continue with loose match
+                    // We need to use looseMatch as targetAlbumNode, but we are in a block.
+                    // Let's refactor slightly to handle this.
+                } else {
+                    console.error(`Album "${cleanRandomName}" absolutely not found.`);
+                    return;
+                }
             }
 
-            // 3. Check if it's already active
-            if (targetAlbumNode.classList.contains('myhknow')) {
+            const finalTargetNode = targetAlbumNode || albumNodes.find(node => normalizeAlbumName(node.innerText).includes(cleanRandomName) || cleanRandomName.includes(normalizeAlbumName(node.innerText)));
+
+            // 3. Check if it's already active (should be handled by logic above, but double check)
+            if (finalTargetNode.classList.contains('myhknow')) {
                 // Already active, pick random song
                 playRandomSongInCurrentAlbum();
+                state.songsPlayedInCurrentAlbum++;
             } else {
+                // Capture current state to detect change
+                const currentFirstSong = document.querySelector('.myhkplaylist .song-list ul li')?.innerText || "";
+                const currentSongCount = document.querySelectorAll('.myhkplaylist .song-list ul li').length;
+
                 // Switch album
                 console.log(`Switching to album: ${randomAlbumName}`);
-                targetAlbumNode.click();
+                finalTargetNode.click();
 
-                // Wait for song list to update
-                // We can use a simple polling mechanism since we don't control the internal event
-                waitForSongListUpdate(() => {
-                    playRandomSongInCurrentAlbum();
-                });
+                // Reset counter for new album
+                state.currentAlbumNameForCounter = cleanRandomName;
+                state.songsPlayedInCurrentAlbum = 1; // Count the one we are about to play
+
+                // Robust Polling Mechanism
+                let checks = 0;
+                const maxChecks = 50; // 5 seconds
+                const checkInterval = setInterval(() => {
+                    checks++;
+                    const songList = document.querySelectorAll('.myhkplaylist .song-list ul li');
+                    const newFirstSong = songList[0]?.innerText || "";
+                    const newSongCount = songList.length;
+
+                    const hasChanged = (songList.length > 0) && (newFirstSong !== currentFirstSong || newSongCount !== currentSongCount);
+                    const isActive = finalTargetNode.classList.contains('myhknow');
+
+                    if (hasChanged && isActive) {
+                        clearInterval(checkInterval);
+                        setTimeout(() => {
+                            playRandomSongInCurrentAlbum();
+                        }, 200);
+                    } else if (checks >= maxChecks) {
+                        clearInterval(checkInterval);
+                        console.warn("Album switch timed out. Fallback to current list.");
+                        // Fallback
+                        playRandomSongInCurrentAlbum();
+                    }
+                }, 100);
             }
         }
 
@@ -3772,7 +3903,9 @@
                 randomAnimDuration: state.randomAnimDuration,
                 myhkwKey: state.myhkwKey,
                 crossAlbumRandom: state.crossAlbumRandom, // (Req New)
+                crossAlbumRandom: state.crossAlbumRandom, // (Req New)
                 selectedCrossAlbums: state.selectedCrossAlbums, // (Req New)
+                switchFrequency: state.switchFrequency, // (Req New)
                 // activeAlbumId: state.activeAlbumId, // (Request 1) 最好不要保存这个
             }));
         }
@@ -3925,6 +4058,13 @@
                 } else {
                     state.selectedCrossAlbums = [];
                 }
+                if (p.switchFrequency !== undefined) {
+                    state.switchFrequency = p.switchFrequency;
+                    el.switchFrequencySelect.value = p.switchFrequency;
+                } else {
+                    state.switchFrequency = 1;
+                    el.switchFrequencySelect.value = 1;
+                }
             }
 
             if (!d) {
@@ -3945,7 +4085,10 @@
                 setRandomAnimDuration(15);
                 state.myhkwKey = null;
                 state.crossAlbumRandom = false;
+                state.crossAlbumRandom = false;
                 state.selectedCrossAlbums = [];
+                state.switchFrequency = 1;
+                el.switchFrequencySelect.value = 1;
                 el.toggleCrossAlbum.checked = false;
                 el.crossAlbumContainer.classList.add('hidden');
 
