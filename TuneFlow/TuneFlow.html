@@ -4463,6 +4463,68 @@
         }
 
         /**
+         * Generate a simple hash for a song (for caching)
+         */
+        function generateSongHash(lyricsArray) {
+            const text = lyricsArray.map(l => l.text || '').join('|');
+            let hash = 0;
+            for (let i = 0; i < text.length; i++) {
+                const char = text.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32bit integer
+            }
+            return Math.abs(hash).toString(36);
+        }
+
+        /**
+         * Get system prompt for context-aware translation
+         */
+        function getContextSystemPrompt(targetLang) {
+            const langMap = {
+                'zh': '中文',
+                'en': 'English',
+                'ja': '日本語',
+                'ko': '한국어',
+                'zh-sichuan': '四川话',
+                'zh-wenyan': '文言文'
+            };
+
+            let basePrompt = `你是一个专业的歌词翻译助手。我会给你一首完整歌曲的歌词，每行前面有编号格式 [0], [1], [2] 等。
+
+请将整首歌曲翻译成${langMap[targetLang]}，理解整首歌的主题、情感和语境，保持歌词的意境和韵味，确保翻译的连贯性和整体性。
+
+重要要求：
+1. 必须保持原有的行编号格式 [数字]
+2. 每行翻译结果前面必须有对应的编号
+3. 按顺序翻译每一行
+4. 只返回翻译结果，不要额外解释`;
+
+            if (targetLang === 'zh-sichuan') {
+                basePrompt = `你是一个专业的歌词翻译助手。我会给你一首完整歌曲的歌词，每行前面有编号格式 [0], [1], [2] 等。
+
+请将整首歌曲翻译成地道的四川话，理解整首歌的主题、情感和语境。使用四川方言的特色词汇和表达方式，让翻译充满川渝特色，保持歌词的意境和韵味。
+
+重要要求：
+1. 必须保持原有的行编号格式 [数字]
+2. 每行翻译结果前面必须有对应的编号
+3. 按顺序翻译每一行
+4. 只返回翻译结果，不要额外解释`;
+            } else if (targetLang === 'zh-wenyan') {
+                basePrompt = `你是一个专业的歌词翻译助手。我会给你一首完整歌曲的歌词，每行前面有编号格式 [0], [1], [2] 等。
+
+请将整首歌曲翻译成优雅的文言文，理解整首歌的主题、情感和语境。使用古典文言的词汇和句式，让翻译富有古韵，保持歌词的意境和韵味。
+
+重要要求：
+1. 必须保持原有的行编号格式 [数字]
+2. 每行翻译结果前面必须有对应的编号
+3. 按顺序翻译每一行
+4. 只返回翻译结果，不要额外解释`;
+            }
+
+            return basePrompt;
+        }
+
+        /**
          * Detect if text contains foreign characters based on target language
          */
         function detectForeignLanguage(text) {
@@ -4501,6 +4563,181 @@
 
             // Default: no change needed
             return false;
+        }
+
+        /**
+         * Translate entire song with streaming API for context-aware translation
+         */
+        async function translateSongWithContext(lyricsArray, targetLang, mode) {
+            if (!state.deepseekApiKey) {
+                throw new Error('请先配置 DeepSeek API Key');
+            }
+
+            // Generate song hash for caching
+            const songHash = generateSongHash(lyricsArray);
+            const cacheKey = `${targetLang}:song:${songHash}`;
+
+            // Check cache first
+            if (state.translationCache.has(cacheKey)) {
+                console.log('Using cached song translation');
+                const cached = state.translationCache.get(cacheKey);
+                applyTranslationsToUI(cached, mode);
+                return;
+            }
+
+            // Filter out empty lines and build full lyrics with line numbers
+            const nonEmptyLines = lyricsArray
+                .map((line, index) => ({ ...line, originalIndex: index }))
+                .filter(line => line.text && line.text.trim());
+
+            if (nonEmptyLines.length === 0) {
+                return;
+            }
+
+            const fullLyrics = nonEmptyLines
+                .map(line => `[${line.originalIndex}] ${line.text}`)
+                .join('\n');
+
+            console.log(`Translating song with context: ${nonEmptyLines.length} lines, hash: ${songHash}`);
+
+            state.isTranslating = true;
+            updateTranslatingIndicator(true);
+
+            try {
+                const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${state.deepseekApiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'deepseek-chat',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: getContextSystemPrompt(targetLang)
+                            },
+                            {
+                                role: 'user',
+                                content: fullLyrics
+                            }
+                        ],
+                        temperature: 0.3,
+                        max_tokens: 8000,
+                        stream: true
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+                }
+
+                // Process streaming response
+                await processStreamingResponse(response, lyricsArray, mode, cacheKey);
+
+            } catch (error) {
+                console.error('Context translation error:', error);
+                state.isTranslating = false;
+                updateTranslatingIndicator(false);
+
+                // Fallback to line-by-line translation
+                console.warn('Falling back to line-by-line translation');
+                await translateLyricsIncremental(lyricsArray, mode);
+            }
+        }
+
+        /**
+         * Process streaming API response
+         */
+        async function processStreamingResponse(response, lyricsArray, mode, cacheKey) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let currentContent = '';
+            const translations = new Map();
+
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') continue;
+
+                            try {
+                                const parsed = JSON.parse(data);
+                                const delta = parsed.choices[0]?.delta?.content;
+
+                                if (delta) {
+                                    currentContent += delta;
+
+                                    // Parse and update UI in real-time
+                                    parseIncrementalTranslation(currentContent, translations, lyricsArray, mode);
+                                }
+                            } catch (e) {
+                                // Ignore parse errors for incomplete JSON
+                            }
+                        }
+                    }
+                }
+
+                // Save to cache
+                const translationArray = Array.from(translations.entries());
+                state.translationCache.set(cacheKey, translationArray);
+                saveCacheToStorage();
+
+                console.log(`Translation complete: ${translations.size} lines translated`);
+
+            } catch (error) {
+                console.error('Streaming response error:', error);
+                throw error;
+            } finally {
+                state.isTranslating = false;
+                updateTranslatingIndicator(false);
+            }
+        }
+
+        /**
+         * Parse incremental translation content and update UI
+         */
+        function parseIncrementalTranslation(content, translations, lyricsArray, mode) {
+            // Extract completed lines with pattern: [index] translation text
+            // Use regex to find all lines with format [number] text
+            const lineRegex = /\[(\d+)\]\s*([^\n\[]+)/g;
+            let match;
+
+            while ((match = lineRegex.exec(content)) !== null) {
+                const index = parseInt(match[1]);
+                const translation = match[2].trim();
+
+                // Only update if this is a new or changed translation
+                if (translation && (!translations.has(index) || translations.get(index) !== translation)) {
+                    translations.set(index, translation);
+
+                    // Update UI immediately for this line
+                    requestAnimationFrame(() => {
+                        updateLyricLineTranslation(index, translation, mode);
+                    });
+                }
+            }
+        }
+
+        /**
+         * Apply cached translations to UI
+         */
+        function applyTranslationsToUI(translationArray, mode) {
+            translationArray.forEach(([index, translation]) => {
+                requestAnimationFrame(() => {
+                    updateLyricLineTranslation(index, translation, mode);
+                });
+            });
         }
 
         /**
@@ -4764,10 +5001,10 @@
                 actualMode = state.translationMode;
             }
 
-            // STEP 3: If translation needed, start background incremental translation
+            // STEP 3: If translation needed, start context-aware streaming translation
             if (needsTranslation && state.deepseekApiKey) {
-                // Start translating in background, updating lines incrementally
-                translateLyricsIncremental(lines, actualMode).catch(error => {
+                // Use context-aware translation for better quality
+                translateSongWithContext(lines, state.targetLanguage, actualMode).catch(error => {
                     console.error('Translation failed:', error);
                 });
             }
