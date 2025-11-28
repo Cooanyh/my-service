@@ -4700,14 +4700,12 @@
                 // Try batch translation first (context-aware)
                 console.log('Starting batch translation with full song context...');
 
-                const translations = await translateLyricsBatch(lyricsArray, state.targetLanguage);
+                // Pass progress callback for streaming display
+                const progressCallback = (index, translation) => {
+                    updateLyricLineTranslation(index, translation, actualMode);
+                };
 
-                // Update all lines immediately after batch completion
-                for (let i = 0; i < lyricsArray.length; i++) {
-                    if (translations[i]) {
-                        updateLyricLineTranslation(i, translations[i], actualMode);
-                    }
-                }
+                const translations = await translateLyricsBatch(lyricsArray, state.targetLanguage, progressCallback);
 
                 console.log('✓ Batch translation completed successfully');
 
@@ -5467,6 +5465,30 @@
         }
 
         /**
+         * Parse partial translation response (for streaming)
+         * Returns array with completed translations only, null for incomplete ones
+         */
+        function parsePartialTranslation(text, expectedCount) {
+            const translations = new Array(expectedCount).fill(null);
+            const lines = text.split('\n');
+
+            for (const line of lines) {
+                const match = line.match(/^\[(\d+)\]\s*(.+)$/);
+                if (match) {
+                    const index = parseInt(match[1]) - 1;
+                    const translation = match[2].trim();
+
+                    // Only accept if it looks complete (not cut off mid-sentence)
+                    if (index >= 0 && index < expectedCount && translation.length > 0) {
+                        translations[index] = translation;
+                    }
+                }
+            }
+
+            return translations;
+        }
+
+        /**
          * Batch translate all lyrics in one AI conversation (context-aware)
          * This allows AI to understand the entire song for better translation coherence
          */
@@ -5523,10 +5545,8 @@
 1. 理解整首歌的主题、情感和意境
 2. 保持翻译风格的连贯性和一致性
 3. 翻译要有诗意和韵味
-4. 每行歌词单独翻译，严格保持行号和行数一致
-5. 一句对应一句，不要扩展、不要解释、不要添加额外内容
-6. 即使原文很简短，翻译也要保持简短，不要过度发挥
-7. 返回格式必须严格遵守：每行格式为 "[行号] 翻译内容"
+4. 每行歌词单独翻译，保持行号
+5. 返回格式必须严格遵守：每行格式为 "[行号] 翻译内容"
 
 请开始翻译：`;
 
@@ -5538,10 +5558,8 @@
 2. 使用地道的四川方言词汇和表达方式，充满川渝特色
 3. 保持翻译风格的连贯性和一致性
 4. 翻译要有诗意和韵味
-5. 每行歌词单独翻译，严格保持行号和行数一致
-6. 一句对应一句，不要扩展、不要解释、不要添加额外内容
-7. 即使原文很简短，翻译也要保持简短，不要过度发挥
-8. 返回格式必须严格遵守：每行格式为 "[行号] 翻译内容"
+5. 每行歌词单独翻译，保持行号
+6. 返回格式必须严格遵守：每行格式为 "[行号] 翻译内容"
 
 请开始翻译：`;
             } else if (targetLang === 'zh-wenyan') {
@@ -5551,11 +5569,9 @@
 1. 理解整首歌的主题、情感和意境
 2. 使用古典文言的词汇和句式，富有古韵
 3. 保持翻译风格的连贯性和一致性
-4. 翻译要有诗意和韵味，适当时可以使用诗句（必须确保适合歌词意境）
-5. 每行歌词单独翻译，严格保持行号和行数一致
-6. 一句对应一句，不要扩展、不要解释、不要添加额外内容
-7. 即使原文很简短，翻译也要用简洁的文言文，不要过度发挥
-8. 返回格式必须严格遵守：每行格式为 "[行号] 翻译内容"
+4. 翻译要有诗意和韵味，适当情况下引用诗词来进行高级意译（要求必须符合歌词意境，不能胡编乱造）
+5. 每行歌词单独翻译，保持行号
+6. 返回格式必须严格遵守：每行格式为 "[行号] 翻译内容"
 
 请开始翻译：`;
             }
@@ -5574,7 +5590,8 @@
                             { role: 'user', content: lyricsText }
                         ],
                         temperature: 0.3,
-                        max_tokens: Math.max(500, nonEmptyLyrics.length * 80) // Dynamic token allocation
+                        max_tokens: Math.max(500, nonEmptyLyrics.length * 80),
+                        stream: true // Enable streaming for progressive display
                     })
                 });
 
@@ -5583,11 +5600,66 @@
                     throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
                 }
 
-                const data = await response.json();
-                const translatedText = data.choices[0].message.content.trim();
+                // Process streaming response
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let accumulatedText = '';
+                const batchTranslations = new Array(nonEmptyLyrics.length).fill(null);
 
-                // Parse translations
-                const batchTranslations = parseTranslationResponse(translatedText, nonEmptyLyrics.length);
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') continue;
+
+                            try {
+                                const parsed = JSON.parse(data);
+                                const content = parsed.choices[0]?.delta?.content;
+                                if (content) {
+                                    accumulatedText += content;
+
+                                    // Try to parse completed lines
+                                    const completedLines = parsePartialTranslation(accumulatedText, nonEmptyLyrics.length);
+
+                                    // Update any newly completed translations
+                                    completedLines.forEach((translation, batchIndex) => {
+                                        if (translation && !batchTranslations[batchIndex]) {
+                                            batchTranslations[batchIndex] = translation;
+
+                                            // Immediately update UI (streaming display)
+                                            if (progressCallback) {
+                                                const originalIndex = indexMap[batchIndex];
+                                                progressCallback(originalIndex, translation);
+                                            }
+                                        }
+                                    });
+                                }
+                            } catch (e) {
+                                // Ignore JSON parse errors in streaming
+                            }
+                        }
+                    }
+                }
+
+                // Final parse to catch any remaining translations
+                const finalTranslations = parseTranslationResponse(accumulatedText, nonEmptyLyrics.length);
+                finalTranslations.forEach((translation, batchIndex) => {
+                    if (translation && !batchTranslations[batchIndex]) {
+                        batchTranslations[batchIndex] = translation;
+                        if (progressCallback) {
+                            const originalIndex = indexMap[batchIndex];
+                            progressCallback(originalIndex, translation);
+                        }
+                    }
+                });
 
                 // Cache the batch result
                 state.translationCache.set(batchCacheKey, batchTranslations);
