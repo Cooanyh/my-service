@@ -3759,17 +3759,17 @@
                 if (result.success) {
                     if (result.noLyrics) {
                         parsedLyrics = [];
-                        renderLyric('♪ 纯音乐，请欣赏 ♪');
+                        renderLyric('纯音乐，请欣赏');
                         lyricsContainer.addClass('lyric-fly-in');
                         setTimeout(() => fallbackToDomLyrics(), 3000);
                     } else {
                         parsedLyrics = parseLrcText(result.lrc);
                         if (parsedLyrics.length > 0) {
                             console.log(`[Lyrics API] Loaded ${parsedLyrics.length} lyric lines`);
-                            renderLyric('♪ 歌词已加载 ♪');
+                            renderLyric('ヾ(≧▽≦*)o');
                             lyricsContainer.addClass('lyric-fly-in');
                         } else {
-                            renderLyric('♪ 纯音乐，请欣赏 ♪');
+                            renderLyric('纯音乐，请欣赏');
                             lyricsContainer.addClass('lyric-fly-in');
                         }
                     }
