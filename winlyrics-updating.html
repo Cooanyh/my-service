@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Win-Lyrics</title>
+    <link rel="icon" href="https://placehold.co/32x32/006DAE/FFFFFF?text=L" type="image/png">
+    <meta charset="UTF-8">
+    <meta name="robots" content="index, follow">
+    <meta name="googlebot" content="index, follow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="google" content="notranslate" />
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="200">
+    <meta property="og:image:height" content="113">
+    <meta name="classification" content="Novelty">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+    <script src="https://code.jquery.com/jquery-latest.js"></script>
+
+    <script>
+        // Original script for background color from query string
+        window.onload = function() {
+            if (location.search && location.search.split('?')[1]) {
+                var myString = location.search.split('?')[1].replace(/%20/g, ' ');
+                $('body').css('background', "#" + myString);
+            }
+        };
+    </script>
+
+    <SCRIPT TYPE="text/javascript">
+        // Original script to disable right-click
+        var message = "Sorry, right-click has been disabled";
+        function clickIE() { if (document.all) { (message); return false; } }
+        function clickNS(e) { if (document.layers || (document.getElementById && !document.all)) { if (e.which == 2 || e.which == 3) { (message); return false; } } }
+        if (document.layers) { document.captureEvents(Event.MOUSEDOWN); document.onmousedown = clickNS; }
+        else { document.onmouseup = clickNS; document.oncontextmenu = clickIE; }
+        document.oncontextmenu = new Function("return false")
+    </SCRIPT>
+
+    <script>
+        // Original script for Enter/Backspace to BSOD (functionality currently commented out by original author)
+        $(function() {
+            $(document).keyup(function(e) {
+                switch (e.keyCode) {
+                    case 13: /* open('bsod.html', '_self'); */ break;
+                    case 8: /* open('bsod.html', '_self'); */ break;
+                }
+            });
+        });
+    </script>
+    <script>
+        // Original Google Analytics
+        (function(i, s, o, g, r, a, m) {
+            i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function() {
+                (i[r].q = i[r].q || []).push(arguments)
+            }, i[r].l = 1 * new Date(); a = s.createElement(o),
+                m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+        })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
+
+        ga('create', 'UA-45751574-5', 'auto');
+        ga('send', 'pageview');
+    </script>
+    
+    <style>
+        html {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            touch-action: manipulation;
+            /* NEW: Prevent pull-to-refresh on mobile browsers */
+            overscroll-behavior-y: contain;
+        }
+
+        body {
+            background: #006dae; /* Default Windows blue */
+            user-select: none; -moz-user-select: none; -webkit-user-select: none; -ms-user-select: none;
+            -webkit-background-size: cover; -moz-background-size: cover; -o-background-size: cover; background-size: cover;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI Light', 'Segoe UI', Arial, sans-serif; /* Consistent font */
+            color: #fff; /* Default text color */
+            overflow: hidden; /* Prevent scrollbars for the app-like UI */
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+             /* NEW: Prevent pull-to-refresh on mobile browsers */
+            overscroll-behavior-y: contain;
+        }
+
+        .CT { /* Main content container */
+            width: 100%;
+            max-width: 100vw;
+            height: 100%;
+            max-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 23px;
+            font-weight: normal;
+            text-align: center;
+        }
+
+        .FONT { /* Container for text elements */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .loader {
+            position: relative; 
+            width: 50px;
+            height: 50px;
+            margin-bottom: 5px;
+        }
+        .loader .circle {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            opacity: 0;
+            transform: rotate(225deg);
+            animation-iteration-count: infinite;
+            animation-name: orbit;
+            animation-duration: 5.5s;
+        }
+        .loader .circle:after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 5px;
+            background: #fff;
+        }
+        .loader .circle:nth-child(2) { animation-delay: 240ms; }
+        .loader .circle:nth-child(3) { animation-delay: 480ms; }
+        .loader .circle:nth-child(4) { animation-delay: 720ms; }
+        .loader .circle:nth-child(5) { animation-delay: 960ms; }
+
+        @keyframes orbit {
+            0% { transform: rotate(225deg); opacity: 1; animation-timing-function: ease-out; }
+            7% { transform: rotate(345deg); animation-timing-function: linear; }
+            30% { transform: rotate(455deg); animation-timing-function: ease-in-out; }
+            39% { transform: rotate(690deg); animation-timing-function: linear; }
+            70% { transform: rotate(815deg); opacity: 1; animation-timing-function: ease-out; }
+            75% { transform: rotate(945deg); animation-timing-function: ease-out; }
+            76% { transform: rotate(945deg); opacity: 0; }
+            100% { transform: rotate(945deg); opacity: 0; }
+        }
+
+        .update-status-text {
+            font-size: 1em;
+            line-height: 1.4;
+        }
+
+        #lyricsDisplay {
+            font-size: 2em;
+            margin-top: 10px; 
+            margin-bottom: 25px; 
+            line-height: 1.3;
+            font-weight: normal;
+            min-height: 1.3em;
+            text-align: center; 
+            word-break: break-word;
+            width: 100%;
+            overflow-wrap: break-word;
+        }
+
+        #songInfoDisplay {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-family: 'Segoe UI Light', 'Segoe UI', Arial, sans-serif;
+            font-size: 16px;
+            padding: 5px 10px;
+            z-index: 10;
+            box-sizing: border-box;
+        }
+
+        #myhkplayer_video { 
+            display: none !important;
+        }
+
+        .toast-notification {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 8px 18px;
+            border-radius: 20px;
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+            pointer-events: none;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .volume-bar-container {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 8px 12px;
+            border-radius: 15px;
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+            pointer-events: none;
+            color: white;
+            text-align: center;
+        }
+        
+        .volume-bar-inner {
+            width: 100%;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .volume-bar-fill {
+            height: 100%;
+            background-color: white;
+            border-radius: 3px;
+            width: 50%;
+            transition: width 0.1s linear;
+        }
+        
+        #volume-level-text {
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        @media (max-width: 768px) {
+            .CT { font-size: 21px; }
+            #lyricsDisplay { font-size: 1.9em; margin-bottom: 20px; }
+        }
+
+        @media (max-width: 600px) {
+            .CT { padding: 15px; font-size: 20px; }
+            #lyricsDisplay { font-size: 1.8em; margin-bottom: 20px; }
+            .loader { width: 45px; height: 45px; margin-bottom: 5px; }
+            .loader .circle { width: 43px; height: 43px; }
+            .loader .circle:after { width: 5px; height: 5px; }
+            #songInfoDisplay { font-size: 14px; bottom: 10px; padding: 5px 10px; }
+        }
+        
+         @media (max-width: 400px) {
+            .CT { padding: 10px; font-size: 18px; }
+            #lyricsDisplay { font-size: 1.6em; margin-bottom: 15px; line-height: 1.25; }
+            .update-status-text { font-size: 0.9em; line-height: 1.3; }
+            .loader { width: 40px; height: 40px; margin-bottom: 5px; }
+            .loader .circle { width: 38px; height: 38px; }
+            .loader .circle:after { width: 4px; height: 4px; }
+            #songInfoDisplay { font-size: 12px; bottom: 5px; padding: 3px 5px; }
+        }
+
+        @media (max-width: 320px) {
+            .CT { font-size: 16px; }
+            #lyricsDisplay { font-size: 1.5em; }
+            .update-status-text { font-size: 0.85em; }
+            #songInfoDisplay { font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="CT">
+        <div class="FONT">
+            <div class='loader'>
+                <div class='circle'></div>
+                <div class='circle'></div>
+                <div class='circle'></div>
+                <div class='circle'></div>
+                <div class='circle'></div>
+            </div>
+            <div id="lyricsDisplay">(播放器初始化中...)</div>
+            <div class="update-status-text">
+                <span id="ref" data-translate="_win10workingonupdates">正在准备就绪</span>
+                &nbsp;<span id="timer">0%</span> <span data-translate="_win7percent"> 已完成。</span><br />
+                <span data-translate="_win10donotturnoff">请不要关闭您的计算机</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="songInfoDisplay">歌曲信息加载中...</div>
+
+    <div id="toast-notification" class="toast-notification"></div>
+    <div id="volume-bar-container" class="volume-bar-container">
+        <div id="volume-level-text">音量: 50%</div>
+        <div class="volume-bar-inner">
+            <div id="volume-bar-fill" class="volume-bar-fill"></div>
+        </div>
+    </div>
+
+    <video mute loop style="z-index:-1;opacity:0.1;width:1px;height:1px;position:fixed;left:1px;bottom:1px;" aria-hidden="true"></video>
+
+    <script type="text/javascript" src="https://myhkw.cn/player/js/jquery.min.js"></script>
+    <script type="text/javascript" id="myhk" src="https://myhkw.cn/api/player/1746320559107" key="1746320559107" m="1"></script>
+
+    <script>
+        $(document).ready(function() {
+            // --- General Variables ---
+            var playerMonitorInterval; 
+            var songInfoLoaded = false; 
+            var initPlayerRetries = 0; 
+            var MAX_INIT_RETRIES = 20;
+            var LYRIC_FETCH_RETRY_DELAY = 1500;
+
+            // --- Screen Wake Lock Logic ---
+            let wakeLock = null;
+
+            const requestWakeLock = async () => {
+                if ('wakeLock' in navigator) {
+                    try {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        wakeLock.addEventListener('release', () => {
+                            wakeLock = null;
+                        });
+                    } catch (err) {
+                        console.error(`${err.name}, ${err.message}`);
+                    }
+                }
+            };
+
+            const releaseWakeLock = async () => {
+                if (wakeLock) {
+                    await wakeLock.release();
+                    wakeLock = null;
+                }
+            };
+            
+            document.addEventListener('visibilitychange', async () => {
+                if (wakeLock === null && document.visibilityState === 'visible' && typeof myhkaudio !== 'undefined' && !myhkaudio.paused) {
+                    await requestWakeLock();
+                }
+            });
+
+            // --- Player UI Enhancement ---
+            function enhancePlayerUI() {
+                const playerStyle = `
+                    <style>
+                        .myhk_player_box {
+                            background: transparent !important;
+                            border: none !important;
+                            transition: background 0.2s ease-in-out !important;
+                        }
+                        .switch-player {
+                            opacity: 0 !important;
+                            transition: opacity 0.2s ease-in-out !important;
+                        }
+                        .myhk_player_box:hover {
+                            background: rgba(0, 0, 0, 0.1) !important;
+                        }
+                        .myhk_player_box:hover .switch-player {
+                            opacity: 1 !important;
+                        }
+                    </style>
+                `;
+                $('head').append(playerStyle);
+
+                let hintShown = false;
+                const hintInterval = setInterval(() => {
+                    const switchPlayer = $('.switch-player');
+                    if (switchPlayer.is(':visible') && !hintShown) {
+                        showToast("播放器已收起至左侧，单击左侧深色条展开");
+                        hintShown = true;
+                        clearInterval(hintInterval);
+                    }
+                }, 2000);
+
+                setTimeout(() => clearInterval(hintInterval), 30000);
+            }
+            
+            // --- NEW: Media Session (SMTC) Integration ---
+            function updateMediaSession(title, artist, artworkSrc) {
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: title || '未知歌曲',
+                        artist: artist || '未知艺术家',
+                        album: 'Win-Lyrics',
+                        artwork: [
+                            { src: artworkSrc || 'https://placehold.co/512x512/006DAE/FFFFFF?text=L', sizes: '512x512', type: 'image/png' },
+                        ]
+                    });
+                }
+            }
+
+
+            // --- Player Integration Logic ---
+            function turnOffPlayerInternalLyrics() {
+                var lyricSwitch = $('.switch-ksclrc'); 
+                if (lyricSwitch.length > 0) {
+                    var icon = lyricSwitch.find('i');
+                    if (icon.length && icon.hasClass('myhkicon-anniu_kaiqi')) {
+                        lyricSwitch.trigger('click'); 
+                    }
+                }
+            }
+            
+            function bindPlayerEvents() {
+                 if (typeof myhkaudio !== 'undefined' && myhkaudio) {
+                    if (myhkaudio.eventsBound) return;
+
+                    myhkaudio.onplay = function() { 
+                        if (!songInfoLoaded) updateSongArtistInfoOnce();
+                        requestWakeLock();
+                        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+                    };
+                    myhkaudio.onpause = function() {
+                        releaseWakeLock();
+                        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+                    };
+                    myhkaudio.onended = function() {
+                        $('#lyricsDisplay').text("(歌曲播放结束)");
+                        $('#timer').text('100%');
+                        songInfoLoaded = false; 
+                        releaseWakeLock();
+                    };
+                    myhkaudio.onemptied = function() { 
+                        songInfoLoaded = false; 
+                        $('#lyricsDisplay').text("(纯音乐，或等待下一曲)"); 
+                        $('#songInfoDisplay').text("歌曲信息加载中..."); 
+                        $('#timer').text('0%');
+                        setTimeout(function() {
+                            if (!songInfoLoaded) updateSongArtistInfoOnce();
+                        }, 500); 
+                    };
+                    myhkaudio.onerror = function(e) {
+                        console.error("Player event: onerror", e);
+                        $('#lyricsDisplay').text("(播放器错误)");
+                        $('#songInfoDisplay').text("播放器错误");
+                        releaseWakeLock();
+                    };
+                    myhkaudio.eventsBound = true;
+                }
+            }
+
+            function initializePlayerIntegration() {
+                initPlayerRetries++;
+                var playerReady = typeof myhkaudio !== 'undefined' && myhkaudio;
+                // No longer require #myhkLrc - we fetch lyrics via API now
+                var songInfoElementsReady = $('div.myhkname span.myhksong span').length && $('span.myhkartist span').length;
+
+                if (playerReady && songInfoElementsReady) { 
+                    if (playerMonitorInterval) clearInterval(playerMonitorInterval);
+                    playerMonitorInterval = setInterval(updateDynamicPlayerInfo, 150); 
+                    updateSongArtistInfoOnce(); 
+                    setTimeout(turnOffPlayerInternalLyrics, 1000); 
+                    bindPlayerEvents(); 
+                    initPlayerRetries = 0;
+                    
+                    // NEW: Setup Media Session Action Handlers
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.setActionHandler('play', () => { if(myhkaudio) myhkaudio.play(); });
+                        navigator.mediaSession.setActionHandler('pause', () => { if(myhkaudio) myhkaudio.pause(); });
+                        navigator.mediaSession.setActionHandler('previoustrack', () => { $('.myhkprev').trigger('click'); });
+                        navigator.mediaSession.setActionHandler('nexttrack', () => { $('.myhknext').trigger('click'); });
+                    }
+                } else {
+                     if (initPlayerRetries < MAX_INIT_RETRIES) {
+                        setTimeout(initializePlayerIntegration, LYRIC_FETCH_RETRY_DELAY); 
+                    } else {
+                        console.error("已达到最大初始化尝试次数 ("+ MAX_INIT_RETRIES +")，播放器未能成功初始化。");
+                        $('#lyricsDisplay').text("(播放器初始化失败)");
+                        $('#songInfoDisplay').text("播放器初始化失败");
+                        if (playerMonitorInterval) clearInterval(playerMonitorInterval);
+                    }
+                }
+            }
+
+            // ==================== LYRICS API INTEGRATION ====================
+            let parsedLyrics = [];
+            let lastSongKey = null;
+            let apiLyricsFetching = false;
+            let lastActiveLyricIndex = -1;
+            let lastRenderedLyric = '';
+
+            function getCurrentSongInfo() {
+                try {
+                    if (typeof songSheetList !== 'undefined' && songSheetList) {
+                        const albumIdx = parseInt(localStorage.getItem('myhk_player_album') || '0') - 1;
+                        const songIdx = parseInt(localStorage.getItem('myhk_player_song') || '0') - 1;
+                        if (albumIdx >= 0 && songIdx >= 0 && songSheetList[albumIdx]) {
+                            const album = songSheetList[albumIdx];
+                            const songId = (album.rids && album.rids[songIdx]) ||
+                                (album.songIds && album.songIds[songIdx]) ||
+                                (album.songList && album.songList[songIdx]) || null;
+                            const songType = (album.songFrom3 && album.songFrom3[songIdx]) ||
+                                (album.songFrom && album.songFrom[songIdx]) ||
+                                (album.songTypes && album.songTypes[songIdx]) || null;
+                            if (!getCurrentSongInfo._logged) {
+                                getCurrentSongInfo._logged = true;
+                                console.log('[Lyrics API] songSheetList album properties:', Object.keys(album).filter(k => Array.isArray(album[k])));
+                                console.log('[Lyrics API] Extracted: id=', songId, 'type=', songType);
+                            }
+                            if (songId && songType) return { id: songId, type: songType };
+                        }
+                    }
+                    if (typeof myhkaudio !== 'undefined' && myhkaudio && myhkaudio.src) {
+                        const srcUrl = myhkaudio.src;
+                        const typeMatch = srcUrl.match(/[?&]type=(\w+)/);
+                        const idMatch = srcUrl.match(/[?&](?:song|rid|2H)=([^&]+)/);
+                        if (typeMatch && idMatch) return { id: idMatch[1], type: typeMatch[1] };
+                    }
+                    const activeItem = document.querySelector('.myhkplaylist li.active img[data-song-type]') ||
+                        document.querySelector('.myhkplaylist li.active img[src]');
+                    if (activeItem) {
+                        const imgSrc = activeItem.getAttribute('data-song-type') || activeItem.src || '';
+                        const typeMatch = imgSrc.match(/[?&]type=(\w+)/);
+                        const idMatch = imgSrc.match(/[?&](?:song|rid|2H)=([^&]+)/);
+                        if (typeMatch && idMatch) return { id: idMatch[1], type: typeMatch[1] };
+                    }
+                } catch (e) { console.warn('[Lyrics API] Error:', e); }
+                return null;
+            }
+
+            async function fetchLyricsFromAPI(songId, songType) {
+                const API_KEY = '92c31de838324a66829909eac0cb76f4';
+                const API_URL = 'https://myhkw.cn/open/music/lrc';
+                try {
+                    const url = `${API_URL}?key=${API_KEY}&id=${encodeURIComponent(songId)}&type=${encodeURIComponent(songType)}`;
+                    console.log(`[Lyrics API] Fetching: type=${songType}, id=${songId}`);
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    if (data.code === 1) {
+                        if (data.data && data.data.trim()) return { success: true, lrc: data.data };
+                        else return { success: true, lrc: null, noLyrics: true };
+                    } else {
+                        return { success: false, error: data.msg || '获取歌词失败' };
+                    }
+                } catch (error) {
+                    return { success: false, error: `歌词API调用失败: ${error.message}` };
+                }
+            }
+
+            function parseLrcText(lrcString) {
+                if (!lrcString) return [];
+                const lines = lrcString.split('\n');
+                const parsed = [];
+                const timeRegex = /\[(\d{2}):(\d{2})[\.:]?(\d{2,3})?\]/g;
+                for (const line of lines) {
+                    const times = [];
+                    let match;
+                    timeRegex.lastIndex = 0;
+                    while ((match = timeRegex.exec(line)) !== null) {
+                        const min = parseInt(match[1]);
+                        const sec = parseInt(match[2]);
+                        const msRaw = match[3] || '0';
+                        const ms = msRaw.length === 2 ? parseInt(msRaw) * 10 : parseInt(msRaw);
+                        times.push(min * 60 + sec + ms / 1000);
+                    }
+                    const text = line.replace(/\[\d{2}:[\d.:]+\]/g, '').trim();
+                    for (const time of times) {
+                        if (text) parsed.push({ time, text });
+                    }
+                }
+                return parsed.sort((a, b) => a.time - b.time);
+            }
+
+            async function loadLyricsViaAPI() {
+                if (apiLyricsFetching) return;
+                const songInfo = getCurrentSongInfo();
+                if (!songInfo || !songInfo.id || !songInfo.type) return;
+                const songKey = `${songInfo.type}_${songInfo.id}`;
+                if (lastSongKey === songKey && parsedLyrics.length > 0) return;
+
+                apiLyricsFetching = true;
+                lastSongKey = songKey;
+                lastActiveLyricIndex = -1;
+
+                const result = await fetchLyricsFromAPI(songInfo.id, songInfo.type);
+                if (result.success) {
+                    if (result.noLyrics) {
+                        parsedLyrics = [];
+                        $('#lyricsDisplay').text('(纯音乐，请欣赏)');
+                    } else {
+                        parsedLyrics = parseLrcText(result.lrc);
+                        console.log(`[Lyrics API] Loaded ${parsedLyrics.length} lyric lines`);
+                    }
+                } else {
+                    const errorMsg = result.error || '歌词加载失败';
+                    if (errorMsg.includes('次数') || errorMsg.includes('耗尽') || errorMsg.includes('额度')) {
+                        $('#lyricsDisplay').text('⚠️ API调用次数已用尽');
+                    } else {
+                        $('#lyricsDisplay').text(`⚠️ ${errorMsg}`);
+                    }
+                    parsedLyrics = [];
+                }
+                apiLyricsFetching = false;
+            }
+
+            function updateDynamicPlayerInfo() {
+                if (typeof myhkaudio === 'undefined' || !myhkaudio) return;
+
+                // Detect song change and fetch lyrics via API
+                const songInfo = getCurrentSongInfo();
+                if (songInfo && songInfo.id && songInfo.type) {
+                    const songKey = `${songInfo.type}_${songInfo.id}`;
+                    if (songKey !== lastSongKey && !apiLyricsFetching) {
+                        loadLyricsViaAPI();
+                    }
+                }
+
+                // Time-based lyric sync
+                var lyricTextToShow = "";
+                if (parsedLyrics.length > 0 && !myhkaudio.paused) {
+                    const currentTime = myhkaudio.currentTime;
+                    let newActiveIndex = -1;
+                    for (let i = parsedLyrics.length - 1; i >= 0; i--) {
+                        if (parsedLyrics[i].time <= currentTime) {
+                            newActiveIndex = i;
+                            break;
+                        }
+                    }
+                    if (newActiveIndex >= 0) {
+                        lyricTextToShow = parsedLyrics[newActiveIndex].text;
+                    }
+                } else if (parsedLyrics.length === 0 && !apiLyricsFetching) {
+                    // Fallback: try DOM lyrics
+                    var currentLyricLine = $('#myhkLrc li.myhknow');
+                    if (currentLyricLine.length > 0) {
+                        lyricTextToShow = currentLyricLine.text().trim();
+                    } else if (myhkaudio.src && myhkaudio.paused && myhkaudio.currentTime === 0 && !myhkaudio.ended) {
+                        var firstAvailableLyric = $('#myhkLrc li').filter(function() { return $(this).text().trim() !== ''; }).first();
+                        if (firstAvailableLyric.length > 0) lyricTextToShow = firstAvailableLyric.text().trim();
+                        else lyricTextToShow = (myhkaudio.duration > 0 && !$('#myhkLrc li').length) ? "(纯音乐，或歌词无法获取)" : "(歌词加载中...)";
+                    } else if (!myhkaudio.src && !myhkaudio.currentSrc) {
+                        lyricTextToShow = "(请选择或播放歌曲)";
+                    } else if (myhkaudio.ended) {
+                        lyricTextToShow = "(歌曲播放结束)";
+                    } else if (myhkaudio.src && !myhkaudio.paused) {
+                        lyricTextToShow = "...";
+                    }
+                }
+
+                if (lyricTextToShow && $('#lyricsDisplay').text() !== lyricTextToShow) {
+                    $('#lyricsDisplay').text(lyricTextToShow);
+                } else if (!lyricTextToShow && myhkaudio.src && !myhkaudio.paused && $('#lyricsDisplay').text() !== "...") {
+                    $('#lyricsDisplay').text("...");
+                }
+
+                if (myhkaudio.duration && myhkaudio.duration > 0 && isFinite(myhkaudio.duration)) {
+                    $('#timer').text(Math.min(100, Math.floor((myhkaudio.currentTime / myhkaudio.duration) * 100)) + '%');
+                } else if (myhkaudio.ended) {
+                     $('#timer').text('100%');
+                } else {
+                    $('#timer').text('0%');
+                }
+            }
+            
+            // UPDATED: Function to get cover art and update media session
+            function updateSongArtistInfoOnce() {
+                if (songInfoLoaded && !$('#songInfoDisplay').text().includes("加载中")) return; 
+
+                if (typeof myhkaudio !== 'undefined' && myhkaudio) {
+                    var title = $('div.myhkname span.myhksong span').first().text().trim();
+                    var artist = $('span.myhkartist span').first().text().trim();
+                    var coverArtUrl = $('.myhkcover img').attr('src');
+                                        
+                    if (title && artist) {
+                        $('#songInfoDisplay').text(title + " - " + artist);
+                        songInfoLoaded = true;
+                        updateMediaSession(title, artist, coverArtUrl);
+                    } else if (title) { 
+                        $('#songInfoDisplay').text(title);
+                        songInfoLoaded = true;
+                        updateMediaSession(title, "未知艺术家", coverArtUrl);
+                    }
+                }
+            }
+            
+            // --- Keyboard and Touch Controls ---
+            let toastTimer, volumeBarTimer;
+
+            function showToast(message) {
+                const toast = $('#toast-notification');
+                clearTimeout(toastTimer);
+                $('#volume-bar-container').css('opacity', 0);
+                toast.text(message).css('opacity', 1);
+                toastTimer = setTimeout(() => toast.css('opacity', 0), 1200);
+            }
+
+            function showVolumeBar() {
+                const volumeBarContainer = $('#volume-bar-container');
+                const volumeFill = $('#volume-bar-fill');
+                const volumeText = $('#volume-level-text');
+
+                clearTimeout(volumeBarTimer);
+                $('#toast-notification').css('opacity', 0);
+
+                const currentVolume = Math.round(myhkaudio.volume * 100);
+                volumeText.text(`音量: ${currentVolume}%`);
+                volumeFill.css('width', `${currentVolume}%`);
+                
+                volumeBarContainer.css('opacity', 1);
+                volumeBarTimer = setTimeout(() => volumeBarContainer.css('opacity', 0), 1500);
+            }
+
+            $(document).on('keydown', function(e) {
+                if (typeof myhkaudio === 'undefined') return;
+
+                // 禁用 F12
+                if (e.key === 'F12' || e.keyCode === 123) {
+                    e.preventDefault();
+                    showToast('开发者工具已禁用');
+                    return;
+                }
+
+                switch (e.key) {
+                    case ' ':
+                        e.preventDefault(); // 阻止空格键的默认行为（如滚动页面）
+                        myhkaudio.paused ? myhkaudio.play() : myhkaudio.pause();
+                        showToast(myhkaudio.paused ? '暂停' : '播放');
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault(); // 阻止方向键的默认行为
+                        $('.myhknext').trigger('click'); 
+                        showToast('下一首');
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault(); // 阻止方向键的默认行为
+                        $('.myhkprev').trigger('click'); 
+                        showToast('上一首');
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault(); // 阻止方向键的默认行为
+                        myhkaudio.volume = Math.min(myhkaudio.volume + 0.05, 1.0);
+                        showVolumeBar();
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault(); // 阻止方向键的默认行为
+                        myhkaudio.volume = Math.max(myhkaudio.volume - 0.05, 0.0);
+                        showVolumeBar();
+                        break;
+                    // 注意：没有default case，这样F11等其他按键就不会被阻止
+                }
+            });
+
+            let touchStartX = 0, touchStartY = 0;
+            let touchStartTime = 0;
+
+            $('.CT').on('touchstart', function(e) {
+                touchStartX = e.originalEvent.touches[0].clientX;
+                touchStartY = e.originalEvent.touches[0].clientY;
+                touchStartTime = Date.now();
+            });
+
+            $('.CT').on('touchend', function(e) {
+                if (typeof myhkaudio === 'undefined') return;
+
+                const deltaX = e.originalEvent.changedTouches[0].clientX - touchStartX;
+                const deltaY = e.originalEvent.changedTouches[0].clientY - touchStartY;
+                const deltaTime = Date.now() - touchStartTime;
+
+                if (deltaTime < 250 && Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+                    myhkaudio.paused ? myhkaudio.play() : myhkaudio.pause();
+                    showToast(myhkaudio.paused ? '暂停' : '播放');
+                    return;
+                }
+
+                if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+                    if (deltaX < 0) { $('.myhknext').trigger('click'); showToast('下一首'); }
+                    else { $('.myhkprev').trigger('click'); showToast('上一首'); }
+                } else if (Math.abs(deltaY) > 50) {
+                    if (deltaY < 0) { myhkaudio.volume = Math.min(myhkaudio.volume + 0.05, 1.0); }
+                    else { myhkaudio.volume = Math.max(myhkaudio.volume - 0.05, 0.0); }
+                    showVolumeBar();
+                }
+            });
+            
+            // --- Initial Setup ---
+            $('#lyricsDisplay').text("(正在初始化...)");
+            $('#songInfoDisplay').text("等待播放器加载...");
+            initializePlayerIntegration(); 
+            enhancePlayerUI(); // 调用UI增强函数
+        });
+    </script>
+</body>
+</html>

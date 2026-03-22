@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title>BSOD-Lyrics</title>
+    <!-- 使用一个简单的文本作为图标，模仿Windows风格 -->
+    <link rel="icon" href="https://placehold.co/32x32/0078D7/FFFFFF?text=: (">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="google" content="notranslate" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <!-- 引入 jQuery 库 -->
+    <script src="https://code.jquery.com/jquery-latest.js"></script>
+
+    <style>
+        /* --- 基础和全局样式 --- */
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            touch-action: manipulation; /* 禁用双击缩放等手势 */
+            overscroll-behavior-y: contain; /* 禁用移动端的下拉刷新 */
+            background-color: #006dae; /* 经典的 Windows 10 蓝屏蓝色 */
+            color: #ffffff; /* 所有文本为白色 */
+            /* 优先使用 Segoe UI Light 和 Segoe UI，这是Windows 10 的标准字体 */
+            font-family: 'Segoe UI Light', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            user-select: none; /* 禁止用户选择文本 */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            overflow: hidden; /* 隐藏滚动条 */
+            display: flex; /* 使用 Flexbox 以更好地控制布局 */
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- 主要内容容器 --- */
+        .bsod-container {
+            width: 100%;
+            max-width: 1200px; /* 在大屏幕上限制最大宽度 */
+            height: 100%;
+            padding: 5vw 8vw; /* 使用视口单位以适应不同屏幕，上下5%，左右8% */
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* 保持垂直居中 */
+        }
+
+        /* --- 新增：内容包装器，用于微调位置 --- */
+        .content-wrapper {
+            position: relative;
+            left: -2vw; /* 向左偏移 */
+            top: 4vh;   /* 向下偏移 */
+        }
+
+        /* --- 悲伤的表情 :( --- */
+        .sad-face {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            font-size: 18vw;
+            font-weight: 200;
+            line-height: 0.9;
+            margin-bottom: 4vh;
+        }
+
+        /* --- 主要信息文本（歌名和歌词）--- */
+        #mainMessage {
+            font-size: 6vw;
+            font-weight: 400;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        #lyricsDisplay {
+            font-size: 6vw;
+            font-weight: 400;
+            margin: 1.5vh 0 6vh 0;
+            min-height: 1.2em;
+            line-height: 1.4;
+        }
+        
+        /* --- 进度百分比 --- */
+        #progressText {
+            font-size: 6vw;
+            font-weight: 400;
+            line-height: 1.4;
+        }
+
+        /* --- 二维码和详细信息区域 --- */
+        .info-section {
+            display: flex;
+            align-items: flex-start;
+            margin-top: 6vh;
+        }
+
+        .qr-code {
+            flex-shrink: 0;
+            width: 25vw;
+            height: 25vw;
+            max-width: 160px;
+            max-height: 160px;
+            margin-right: 4vw;
+        }
+        
+        .qr-code img {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .details-text {
+            font-size: 3vw;
+            line-height: 1.7;
+            font-weight: 300;
+        }
+        
+        .details-text p {
+            margin: 0 0 1.2em 0;
+        }
+
+        /* --- 操作提示样式 --- */
+        .toast-notification {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 22px;
+            border-radius: 25px;
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out, bottom 0.4s ease-in-out;
+            pointer-events: none;
+            font-size: 16px;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            font-weight: 400;
+            white-space: nowrap;
+        }
+
+        .volume-bar-container {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 18px;
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out, bottom 0.4s ease-in-out;
+            pointer-events: none;
+            color: white;
+            text-align: center;
+        }
+
+        .volume-bar-inner {
+            width: 100%;
+            height: 7px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 3.5px;
+            overflow: hidden;
+        }
+
+        .volume-bar-fill {
+            height: 100%;
+            background-color: white;
+            border-radius: 3.5px;
+            width: 50%;
+            transition: width 0.1s linear;
+        }
+
+        #volume-level-text {
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 300;
+        }
+
+        /* --- 响应式设计 (针对大屏幕进行微调，固定字体大小) --- */
+        @media (min-width: 768px) {
+            .bsod-container {
+                padding: 60px 100px;
+            }
+            .content-wrapper {
+                left: -20px;
+                top: 30px;
+            }
+            .sad-face {
+                font-size: 120px;
+                 margin-bottom: 30px;
+            }
+            #mainMessage, #lyricsDisplay, #progressText {
+                font-size: 38px;
+            }
+             #lyricsDisplay {
+                margin-bottom: 50px;
+            }
+            .info-section {
+                 margin-top: 40px;
+            }
+             .qr-code {
+                margin-right: 30px;
+            }
+            .details-text {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bsod-container">
+        <div class="content-wrapper">
+            <div class="sad-face">:(</div>
+            
+            <h1 id="mainMessage">你的电脑遇到问题，需要重新启动。</h1>
+            <p id="lyricsDisplay">我们只收集某些错误信息，然后为你重新启动。</p>
+
+            <p id="progressText">0% 完成</p>
+            
+            <div class="info-section">
+                <div class="qr-code">
+                    <img src="https://upyun.coren.xin/web/pic/httpscoren.xin_.png" width="400" height="400" alt="QR Code">
+                </div>
+                <div class="details-text">
+                    <p>有关此Windows蓝屏播放器的更多信息，请访问：https://coren.xin/myservice/winlyrics/</p>
+                    <p>如果致电支持人员，请向他们提供以下信息：<br>
+                       终止代码: <span id="terminationCode">WINLYRICS_CREATED_BY_COREN</span><br>
+                       艺人: <span id="artistInfo">正在加载...</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-notification" class="toast-notification"></div>
+    <div id="volume-bar-container" class="volume-bar-container">
+        <div id="volume-level-text">音量: 50%</div>
+        <div class="volume-bar-inner">
+            <div id="volume-bar-fill" class="volume-bar-fill"></div>
+        </div>
+    </div>
+
+    <!-- 隐藏的视频元素和播放器核心JS -->
+    <video mute loop style="display:none;" aria-hidden="true"></video>
+    <script type="text/javascript" id="myhk" src="https://myhkw.cn/api/player/1746320559107" key="1746320559107" m="1"></script>
+
+    <script>
+        $(document).ready(function() {
+            // --- 全局变量 ---
+            let playerMonitorInterval;
+            let songInfoLoaded = false;
+            let initPlayerRetries = 0;
+            const MAX_INIT_RETRIES = 20;
+            const RETRY_DELAY = 1500;
+            let wakeLock = null;
+            let toastTimer, volumeBarTimer;
+
+            // --- 屏幕常亮 API ---
+            const requestWakeLock = async () => {
+                if ('wakeLock' in navigator) {
+                    try {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        wakeLock.addEventListener('release', () => { wakeLock = null; });
+                    } catch (err) {
+                        console.error(`激活屏幕常亮失败: ${err.name}, ${err.message}`);
+                    }
+                }
+            };
+
+            const releaseWakeLock = async () => {
+                if (wakeLock) {
+                    await wakeLock.release();
+                    wakeLock = null;
+                }
+            };
+            
+            document.addEventListener('visibilitychange', async () => {
+                if (wakeLock === null && document.visibilityState === 'visible' && typeof myhkaudio !== 'undefined' && !myhkaudio.paused) {
+                    await requestWakeLock();
+                }
+            });
+
+            // --- 操作提示函数 ---
+            function showToast(message) {
+                const toast = $('#toast-notification');
+                clearTimeout(toastTimer);
+                $('#volume-bar-container').css('opacity', 0);
+                toast.text(message).css('opacity', 1);
+                toastTimer = setTimeout(() => toast.css('opacity', 0), 1200);
+            }
+
+            function showVolumeBar() {
+                const volumeBarContainer = $('#volume-bar-container');
+                const volumeFill = $('#volume-bar-fill');
+                const volumeText = $('#volume-level-text');
+                clearTimeout(volumeBarTimer);
+                $('#toast-notification').css('opacity', 0);
+                const currentVolume = Math.round(myhkaudio.volume * 100);
+                volumeText.text(`音量: ${currentVolume}%`);
+                volumeFill.css('width', `${currentVolume}%`);
+                volumeBarContainer.css('opacity', 1);
+                volumeBarTimer = setTimeout(() => volumeBarContainer.css('opacity', 0), 1500);
+            }
+
+            // --- 播放器UI增强 ---
+            function enhancePlayerUI() {
+                const playerStyle = `
+                    <style>
+                        .myhk_player_box {
+                            background: transparent !important;
+                            border: none !important;
+                            transition: background 0.2s ease-in-out !important;
+                        }
+                        .switch-player {
+                            opacity: 0 !important;
+                            transition: opacity 0.2s ease-in-out !important;
+                        }
+                        .myhk_player_box:hover {
+                            background: rgba(0, 0, 0, 0.1) !important;
+                        }
+                        .myhk_player_box:hover .switch-player {
+                            opacity: 1 !important;
+                        }
+                    </style>
+                `;
+                $('head').append(playerStyle);
+
+                let hintShown = false;
+                const hintInterval = setInterval(() => {
+                    const switchPlayer = $('.switch-player');
+                    if (switchPlayer.is(':visible') && !hintShown) {
+                        showToast("播放器已收起至左侧，单击左侧深色条展开");
+                        hintShown = true;
+                        clearInterval(hintInterval);
+                    }
+                }, 2000);
+
+                setTimeout(() => clearInterval(hintInterval), 30000);
+            }
+
+            // --- NEW: 媒体会话 (SMTC) 集成 ---
+            function updateMediaSession(title, artist, artworkSrc) {
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: title || '未知歌曲',
+                        artist: artist || '未知艺术家',
+                        album: 'BSOD-Lyrics',
+                        artwork: [
+                            { src: artworkSrc || 'https://placehold.co/512x512/0078D7/FFFFFF?text=:(', sizes: '512x512', type: 'image/png' },
+                        ]
+                    });
+                }
+            }
+
+
+            // --- 播放器集成逻辑 ---
+            function turnOffPlayerInternalLyrics() {
+                const lyricSwitch = $('.switch-ksclrc');
+                if (lyricSwitch.length > 0 && lyricSwitch.find('i').hasClass('myhkicon-anniu_kaiqi')) {
+                    lyricSwitch.trigger('click');
+                }
+            }
+            
+            function bindPlayerEvents() {
+                 if (typeof myhkaudio !== 'undefined' && myhkaudio && !myhkaudio.eventsBound) {
+                    myhkaudio.onplay = () => {
+                        if (!songInfoLoaded) updateSongArtistInfoOnce();
+                        requestWakeLock();
+                        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+                    };
+                    myhkaudio.onpause = () => {
+                        releaseWakeLock();
+                        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+                    };
+                    myhkaudio.onended = () => {
+                        $('#mainMessage').text("歌曲播放结束。");
+                        $('#lyricsDisplay').text("将自动播放下一首...");
+                        $('#progressText').text('100% 完成');
+                        songInfoLoaded = false;
+                        releaseWakeLock();
+                    };
+                    myhkaudio.onemptied = () => {
+                        songInfoLoaded = false;
+                        $('#mainMessage').text("你的电脑遇到问题，需要重新启动。");
+                        $('#lyricsDisplay').text("我们只收集某些错误信息，然后为你重新启动。");
+                        $('#artistInfo').text("正在加载...");
+                        $('#progressText').text('0% 完成');
+                        setTimeout(() => { if (!songInfoLoaded) updateSongArtistInfoOnce(); }, 500);
+                    };
+                    myhkaudio.onerror = (e) => {
+                        $('#mainMessage').text("播放器遇到错误。");
+                        $('#lyricsDisplay').text("请检查网络连接或刷新。");
+                        releaseWakeLock();
+                    };
+                    myhkaudio.eventsBound = true;
+                }
+            }
+
+            function initializePlayerIntegration() {
+                initPlayerRetries++;
+                const playerReady = typeof myhkaudio !== 'undefined' && myhkaudio;
+                // No longer require #myhkLrc - we fetch lyrics via API now
+                const songInfoElementsReady = $('div.myhkname span.myhksong span').length && $('span.myhkartist span').length;
+
+                if (playerReady && songInfoElementsReady) {
+                    if (playerMonitorInterval) clearInterval(playerMonitorInterval);
+                    playerMonitorInterval = setInterval(updateDynamicPlayerInfo, 150);
+                    updateSongArtistInfoOnce();
+                    setTimeout(turnOffPlayerInternalLyrics, 1000);
+                    bindPlayerEvents();
+                    // NEW: 设置媒体会话操作
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.setActionHandler('play', () => { if(myhkaudio) myhkaudio.play(); });
+                        navigator.mediaSession.setActionHandler('pause', () => { if(myhkaudio) myhkaudio.pause(); });
+                        navigator.mediaSession.setActionHandler('previoustrack', () => { $('.myhkprev').trigger('click'); });
+                        navigator.mediaSession.setActionHandler('nexttrack', () => { $('.myhknext').trigger('click'); });
+                    }
+                } else if (initPlayerRetries < MAX_INIT_RETRIES) {
+                    setTimeout(initializePlayerIntegration, RETRY_DELAY);
+                } else {
+                    $('#mainMessage').text("播放器初始化失败。");
+                    $('#lyricsDisplay').text("组件加载超时，请刷新页面重试。");
+                }
+            }
+
+            // ==================== LYRICS API INTEGRATION ====================
+            let parsedLyrics = [];
+            let lastSongKey = null;
+            let apiLyricsFetching = false;
+            let lastActiveLyricIndex = -1;
+            let lastRenderedLyric = '';
+
+            function getCurrentSongInfo() {
+                try {
+                    if (typeof songSheetList !== 'undefined' && songSheetList) {
+                        const albumIdx = parseInt(localStorage.getItem('myhk_player_album') || '0') - 1;
+                        const songIdx = parseInt(localStorage.getItem('myhk_player_song') || '0') - 1;
+                        if (albumIdx >= 0 && songIdx >= 0 && songSheetList[albumIdx]) {
+                            const album = songSheetList[albumIdx];
+                            const songId = (album.rids && album.rids[songIdx]) ||
+                                (album.songIds && album.songIds[songIdx]) ||
+                                (album.songList && album.songList[songIdx]) || null;
+                            const songType = (album.songFrom3 && album.songFrom3[songIdx]) ||
+                                (album.songFrom && album.songFrom[songIdx]) ||
+                                (album.songTypes && album.songTypes[songIdx]) || null;
+                            if (!getCurrentSongInfo._logged) {
+                                getCurrentSongInfo._logged = true;
+                                console.log('[Lyrics API] songSheetList album properties:', Object.keys(album).filter(k => Array.isArray(album[k])));
+                                console.log('[Lyrics API] Extracted: id=', songId, 'type=', songType);
+                            }
+                            if (songId && songType) return { id: songId, type: songType };
+                        }
+                    }
+                    if (typeof myhkaudio !== 'undefined' && myhkaudio && myhkaudio.src) {
+                        const srcUrl = myhkaudio.src;
+                        const typeMatch = srcUrl.match(/[?&]type=(\w+)/);
+                        const idMatch = srcUrl.match(/[?&](?:song|rid|2H)=([^&]+)/);
+                        if (typeMatch && idMatch) return { id: idMatch[1], type: typeMatch[1] };
+                    }
+                    const activeItem = document.querySelector('.myhkplaylist li.active img[data-song-type]') ||
+                        document.querySelector('.myhkplaylist li.active img[src]');
+                    if (activeItem) {
+                        const imgSrc = activeItem.getAttribute('data-song-type') || activeItem.src || '';
+                        const typeMatch = imgSrc.match(/[?&]type=(\w+)/);
+                        const idMatch = imgSrc.match(/[?&](?:song|rid|2H)=([^&]+)/);
+                        if (typeMatch && idMatch) return { id: idMatch[1], type: typeMatch[1] };
+                    }
+                } catch (e) { console.warn('[Lyrics API] Error:', e); }
+                return null;
+            }
+
+            async function fetchLyricsFromAPI(songId, songType) {
+                const API_KEY = '92c31de838324a66829909eac0cb76f4';
+                const API_URL = 'https://myhkw.cn/open/music/lrc';
+                try {
+                    const url = `${API_URL}?key=${API_KEY}&id=${encodeURIComponent(songId)}&type=${encodeURIComponent(songType)}`;
+                    console.log(`[Lyrics API] Fetching: type=${songType}, id=${songId}`);
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    if (data.code === 1) {
+                        if (data.data && data.data.trim()) return { success: true, lrc: data.data };
+                        else return { success: true, lrc: null, noLyrics: true };
+                    } else {
+                        return { success: false, error: data.msg || '获取歌词失败' };
+                    }
+                } catch (error) {
+                    return { success: false, error: `歌词API调用失败: ${error.message}` };
+                }
+            }
+
+            function parseLrcText(lrcString) {
+                if (!lrcString) return [];
+                const lines = lrcString.split('\n');
+                const parsed = [];
+                const timeRegex = /\[(\d{2}):(\d{2})[\.:]?(\d{2,3})?\]/g;
+                for (const line of lines) {
+                    const times = [];
+                    let match;
+                    timeRegex.lastIndex = 0;
+                    while ((match = timeRegex.exec(line)) !== null) {
+                        const min = parseInt(match[1]);
+                        const sec = parseInt(match[2]);
+                        const msRaw = match[3] || '0';
+                        const ms = msRaw.length === 2 ? parseInt(msRaw) * 10 : parseInt(msRaw);
+                        times.push(min * 60 + sec + ms / 1000);
+                    }
+                    const text = line.replace(/\[\d{2}:[\d.:]+\]/g, '').trim();
+                    for (const time of times) {
+                        if (text) parsed.push({ time, text });
+                    }
+                }
+                return parsed.sort((a, b) => a.time - b.time);
+            }
+
+            async function loadLyricsViaAPI() {
+                if (apiLyricsFetching) return;
+                const songInfo = getCurrentSongInfo();
+                if (!songInfo || !songInfo.id || !songInfo.type) {
+                    return; // Will fall back to DOM in updateDynamicPlayerInfo
+                }
+                const songKey = `${songInfo.type}_${songInfo.id}`;
+                if (lastSongKey === songKey && parsedLyrics.length > 0) return;
+
+                apiLyricsFetching = true;
+                lastSongKey = songKey;
+                lastActiveLyricIndex = -1;
+
+                const result = await fetchLyricsFromAPI(songInfo.id, songInfo.type);
+                if (result.success) {
+                    if (result.noLyrics) {
+                        parsedLyrics = [];
+                        $('#lyricsDisplay').text('♪ 纯音乐，请欣赏 ♪');
+                    } else {
+                        parsedLyrics = parseLrcText(result.lrc);
+                        console.log(`[Lyrics API] Loaded ${parsedLyrics.length} lyric lines`);
+                    }
+                } else {
+                    const errorMsg = result.error || '歌词加载失败';
+                    if (errorMsg.includes('次数') || errorMsg.includes('耗尽') || errorMsg.includes('额度')) {
+                        $('#lyricsDisplay').text('⚠️ API调用次数已用尽');
+                    } else {
+                        $('#lyricsDisplay').text(`⚠️ ${errorMsg}`);
+                    }
+                    parsedLyrics = [];
+                }
+                apiLyricsFetching = false;
+            }
+
+            function updateDynamicPlayerInfo() {
+                if (typeof myhkaudio === 'undefined' || !myhkaudio) return;
+
+                // Song title update
+                const title = $('div.myhkname span.myhksong span').first().text().trim();
+                if (title && $('#mainMessage').text() !== `${title}。遇到问题，需要重启。`) {
+                    $('#mainMessage').text(`${title}。遇到问题，需要重启。`);
+                }
+
+                // Detect song change and fetch lyrics via API
+                const songInfo = getCurrentSongInfo();
+                if (songInfo && songInfo.id && songInfo.type) {
+                    const songKey = `${songInfo.type}_${songInfo.id}`;
+                    if (songKey !== lastSongKey && !apiLyricsFetching) {
+                        loadLyricsViaAPI();
+                    }
+                }
+
+                // Time-based lyric sync
+                if (parsedLyrics.length > 0 && !myhkaudio.paused) {
+                    const currentTime = myhkaudio.currentTime;
+                    let newActiveIndex = -1;
+                    for (let i = parsedLyrics.length - 1; i >= 0; i--) {
+                        if (parsedLyrics[i].time <= currentTime) {
+                            newActiveIndex = i;
+                            break;
+                        }
+                    }
+                    if (newActiveIndex >= 0 && newActiveIndex !== lastActiveLyricIndex) {
+                        lastActiveLyricIndex = newActiveIndex;
+                        const lyricText = parsedLyrics[newActiveIndex].text;
+                        if (lyricText !== lastRenderedLyric) {
+                            lastRenderedLyric = lyricText;
+                            $('#lyricsDisplay').text(lyricText);
+                        }
+                    }
+                } else if (parsedLyrics.length === 0 && !apiLyricsFetching) {
+                    // Fallback: try DOM lyrics
+                    const currentLyricLine = $('#myhkLrc li.myhknow').text().trim();
+                    if (currentLyricLine && currentLyricLine !== lastRenderedLyric) {
+                        lastRenderedLyric = currentLyricLine;
+                        $('#lyricsDisplay').text(currentLyricLine);
+                    } else if (!currentLyricLine && !myhkaudio.paused && lastRenderedLyric !== '...') {
+                        lastRenderedLyric = '...';
+                        $('#lyricsDisplay').text('...');
+                    }
+                }
+
+                // Progress update
+                if (myhkaudio.duration > 0 && isFinite(myhkaudio.duration)) {
+                    const progress = Math.min(100, Math.floor((myhkaudio.currentTime / myhkaudio.duration) * 100));
+                    $('#progressText').text(`${progress}% 完成`);
+                }
+            }
+            
+            // UPDATED: Function to get all song info and update media session
+            function updateSongArtistInfoOnce() {
+                if (typeof myhkaudio !== 'undefined' && myhkaudio) {
+                    const title = $('div.myhkname span.myhksong span').first().text().trim();
+                    const artist = $('span.myhkartist span').first().text().trim();
+                    const coverArtUrl = $('.myhkcover img').attr('src');
+                    
+                    if (artist && $('#artistInfo').text() !== artist) {
+                        $('#artistInfo').text(artist);
+                    }
+                    if(title && artist) {
+                        songInfoLoaded = true;
+                        updateMediaSession(title, artist, coverArtUrl);
+                    }
+                }
+            }
+            
+            // --- 控制逻辑 (键盘和触摸) ---
+            $(document.body).on('keydown', function(e) {
+                if (typeof myhkaudio === 'undefined') return;
+                if ([' ', 'ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
+                switch (e.key) {
+                    case ' ': 
+                        myhkaudio.paused ? myhkaudio.play() : myhkaudio.pause();
+                        showToast(myhkaudio.paused ? '暂停' : '播放');
+                        break;
+                    case 'ArrowRight': 
+                        $('.myhknext').trigger('click');
+                        showToast('下一首');
+                        break;
+                    case 'ArrowLeft': 
+                        $('.myhkprev').trigger('click');
+                        showToast('上一首');
+                        break;
+                    case 'ArrowUp': 
+                        myhkaudio.volume = Math.min(myhkaudio.volume + 0.05, 1.0);
+                        showVolumeBar();
+                        break;
+                    case 'ArrowDown': 
+                        myhkaudio.volume = Math.max(myhkaudio.volume - 0.05, 0.0);
+                        showVolumeBar();
+                        break;
+                }
+            });
+
+            let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+            $(document.body).on('touchstart', e => {
+                touchStartX = e.originalEvent.touches[0].clientX;
+                touchStartY = e.originalEvent.touches[0].clientY;
+                touchStartTime = Date.now();
+            });
+
+            $(document.body).on('touchend', e => {
+                if (typeof myhkaudio === 'undefined') return;
+                const deltaX = e.originalEvent.changedTouches[0].clientX - touchStartX;
+                const deltaY = e.originalEvent.changedTouches[0].clientY - touchStartY;
+                if (Date.now() - touchStartTime < 250 && Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) {
+                    myhkaudio.paused ? myhkaudio.play() : myhkaudio.pause();
+                    showToast(myhkaudio.paused ? '暂停' : '播放');
+                } else if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 40) {
+                    if (deltaX < 0) {
+                        $('.myhknext').trigger('click');
+                        showToast('下一首');
+                    } else {
+                        $('.myhkprev').trigger('click');
+                        showToast('上一首');
+                    }
+                } else if (Math.abs(deltaY) > 40) {
+                    if (deltaY < 0) {
+                        myhkaudio.volume = Math.min(myhkaudio.volume + 0.1, 1.0);
+                    } else {
+                        myhkaudio.volume = Math.max(myhkaudio.volume - 0.1, 0.0);
+                    }
+                    showVolumeBar();
+                }
+            });
+            
+            // --- 脚本开始执行 ---
+            initializePlayerIntegration();
+            enhancePlayerUI();
+        });
+    </script>
+
+</body>
+</html>
