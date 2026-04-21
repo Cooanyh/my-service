@@ -884,7 +884,23 @@
         /* Lyric Play Button */
         .lyric-line {
             position: relative;
-            padding-left: 40px;
+            padding: 6px 16px;
+            border-radius: 12px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        .lyric-line:hover {
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), inset 0 0 20px rgba(255, 255, 255, 0.03);
+            transform: scale(1.02);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .lyric-line:hover .lyric-original,
+        .lyric-line:hover .lyric-translation {
+            opacity: 1;
+            filter: blur(0);
         }
 
         .lyric-play-btn {
@@ -908,7 +924,7 @@
         }
 
         .lyric-line:hover .lyric-play-btn {
-            opacity: 1;
+            opacity: 0;
         }
 
         .lyric-play-btn:hover {
@@ -3210,18 +3226,14 @@
             });
             audioObj.addEventListener('emptied', () => {
                 if (state.localIndex > -1) return;
+                updateSongInfo();
                 if (audioObj.readyState < 2) {
-                    el.title.innerText = t('status_wait_audio');
                     el.artist.innerText = "...";
                     showLyricPlaceholder(t('status_wait_audio'));
-                    el.ssSongInfo.innerText = '...';
-                } else {
-                    setTimeout(updateSongInfo, 500);
                 }
 
                 el.coverImg.src = DEFAULT_COVER;
                 updateDynamicBackground(DEFAULT_COVER);
-                updateMediaSession();
             });
 
             document.addEventListener('keydown', handleKeydown);
@@ -3293,11 +3305,7 @@
             el.totalTime.innerText = formatTime(d);
 
             if (state.localIndex === -1) {
-                if (d > 0) {
-                    updateSongInfo();
-                } else if (audioObj.readyState >= 2) {
-                    updateSongInfo();
-                }
+                updateSongInfo();
             }
 
             if (audioObj.playbackRate !== state.playbackRate) {
@@ -3385,15 +3393,16 @@
             if (!container) return;
 
             container.addEventListener('click', (e) => {
-                // Check if click target is play button or inside it
+                // Check if click target is play button or inside it, or the lyric line itself
                 const btn = e.target.closest('.lyric-play-btn');
-                if (!btn) return;
+                const line = e.target.closest('.lyric-line');
 
-                e.stopPropagation();
-
-                // Find parent lyric line
-                const line = btn.closest('.lyric-line');
                 if (!line) return;
+
+                // If clicked on play button, just let the line handle it
+                if (btn) {
+                    e.stopPropagation();
+                }
 
                 const time = parseFloat(line.dataset.time) || 0;
                 const index = parseInt(line.dataset.index);
@@ -4034,26 +4043,43 @@
             if (state.localIndex > -1) return;
             try {
                 const coverSrc = document.querySelector('.myhkcover img')?.src;
-                const titleText = document.querySelector('.myhksong span')?.innerText;
-                const artistText = document.querySelector('.myhkartist span')?.innerText;
+                let titleText = document.querySelector('.myhksong span')?.innerText;
+                let artistText = document.querySelector('.myhkartist span')?.innerText;
+
+                if (!titleText) {
+                    const songIdx = parseInt(localStorage.getItem('myhk_player_song') || '0') - 1;
+                    const activeSongItem = document.querySelectorAll('.myhkplaylist .song-list ul li')[songIdx];
+                    if (activeSongItem) {
+                        const fullText = activeSongItem.innerText?.trim() || '';
+                        titleText = fullText.split(/\s*-\s*/)[0]?.trim();
+                    }
+                }
+
+                if (!titleText || !artistText) {
+                    const songInfo = getCurrentSongInfo();
+                    if (songInfo) {
+                        if (!titleText && songInfo.name) {
+                            titleText = songInfo.name;
+                        }
+                        if (!artistText) {
+                            artistText = t('status_engine_linked');
+                        }
+                    }
+                }
 
                 if (coverSrc && el.coverImg.src !== coverSrc) {
                     el.coverImg.src = coverSrc;
                     updateDynamicBackground(coverSrc);
                 }
 
-                let resized = false;
-                if (titleText && el.title.innerText !== titleText) {
+                if (titleText) {
                     el.title.innerText = titleText;
-                    resized = true;
                 }
-                if (artistText && el.artist.innerText !== artistText) {
+                if (artistText) {
                     el.artist.innerText = artistText;
-                    resized = true;
                 }
-                if (resized) {
+                if (titleText || artistText) {
                     setTimeout(alignLyricContainer, 50);
-                    // (Req 4) 更新 MediaSession
                     updateMediaSession({
                         title: titleText,
                         artist: artistText,
