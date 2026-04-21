@@ -3210,16 +3210,18 @@
             });
             audioObj.addEventListener('emptied', () => {
                 if (state.localIndex > -1) return;
-                el.title.innerText = t('status_wait_audio');
-                el.artist.innerText = "...";
-                showLyricPlaceholder(t('status_wait_audio'));
-                el.ssSongInfo.innerText = '...';
+                if (audioObj.readyState < 2) {
+                    el.title.innerText = t('status_wait_audio');
+                    el.artist.innerText = "...";
+                    showLyricPlaceholder(t('status_wait_audio'));
+                    el.ssSongInfo.innerText = '...';
+                } else {
+                    setTimeout(updateSongInfo, 500);
+                }
 
                 el.coverImg.src = DEFAULT_COVER;
                 updateDynamicBackground(DEFAULT_COVER);
-                updateMediaSession(); // (Req 4) 清除媒体信息
-
-                setTimeout(updateSongInfo, 500);
+                updateMediaSession();
             });
 
             document.addEventListener('keydown', handleKeydown);
@@ -3291,7 +3293,11 @@
             el.totalTime.innerText = formatTime(d);
 
             if (state.localIndex === -1) {
-                updateSongInfo();
+                if (d > 0) {
+                    updateSongInfo();
+                } else if (audioObj.readyState >= 2) {
+                    updateSongInfo();
+                }
             }
 
             if (audioObj.playbackRate !== state.playbackRate) {
