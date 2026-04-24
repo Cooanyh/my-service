@@ -4688,7 +4688,7 @@
                         'Authorization': `Bearer ${state.deepseekApiKey}`
                     },
                     body: JSON.stringify({
-                        model: 'deepseek-chat', // Use chat model, NOT deepseek-reasoner
+                        model: 'deepseek-v4-flash',
                         messages: [
                             {
                                 role: 'system',
@@ -4700,7 +4700,8 @@
                             }
                         ],
                         temperature: 0.3,
-                        max_tokens: 200
+                        max_tokens: 200,
+                        thinking: {"type": "disabled"}
                     })
                 });
 
@@ -4873,7 +4874,7 @@
                         'Authorization': `Bearer ${state.deepseekApiKey}`
                     },
                     body: JSON.stringify({
-                        model: 'deepseek-chat',
+                        model: 'deepseek-v4-flash',
                         messages: [
                             {
                                 role: 'system',
@@ -4886,7 +4887,8 @@
                         ],
                         temperature: 0.3,
                         max_tokens: 8000,
-                        stream: true
+                        stream: true,
+                        thinking: {"type": "disabled"}
                     })
                 });
 
@@ -5347,11 +5349,12 @@
                         'Authorization': `Bearer ${apiKey}`
                     },
                     body: JSON.stringify({
-                        model: 'deepseek-chat',
+                        model: 'deepseek-v4-flash',
                         messages: [
                             { role: 'user', content: 'Hi' }
                         ],
-                        max_tokens: 5
+                        max_tokens: 5,
+                        thinking: {"type": "disabled"}
                     })
                 });
 
