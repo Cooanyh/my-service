@@ -1983,7 +1983,7 @@
                     <p>&copy; 2024 <a href="https://coren.xin/" target="_blank" class="hover:text-primary">Coren</a>.
                         All Rights Reserved.</p>
                     <p class="mt-1" data-lang="settings_bg_hint_footer">Default videos by 影视飓风-样片日记.</p>
-                    <p class="mt-2 font-mono text-[10px] text-gray-600">Version: 6.2.4</p>
+                    <p class="mt-2 font-mono text-[10px] text-gray-600">Version: 6.2.3</p>
                 </div>
 
             </div>
@@ -2051,7 +2051,7 @@
         }
 
         const DEFAULT_COVER = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=800&q=80";
-        const DEFAULT_MYHKW_KEY = "1746320559107";
+        const DEFAULT_MYHKW_KEY = ""; // Public repo should not ship a built-in key
 
         const DEFAULT_BGS = [
             { type: 'image_api', url: 'https://tu.ltyuanfang.cn/api/fengjing.php' },
@@ -2144,9 +2144,6 @@
             lastSongKey: null,       // Track current song to detect changes
             apiLyricsFetching: false, // Prevent duplicate API calls
             lyricClearTimer: null,   // Debounce clearing lyrics
-            lastSongInfoCheckAt: 0,
-            lastSongInfoLogKey: null,
-            contextMenuOpenedAt: 0,
 
             lang: {
                 en: {
@@ -3603,7 +3600,6 @@
                 e.preventDefault();
                 updateContextMenu();
                 const menu = el.contextMenu;
-                state.contextMenuOpenedAt = Date.now();
 
                 const { clientX: mouseX, clientY: mouseY } = e;
                 const { innerWidth: winWidth, innerHeight: winHeight } = window;
@@ -3627,8 +3623,6 @@
             });
 
             document.addEventListener('click', (e) => {
-                if (e.button !== 0) return;
-                if (Date.now() - state.contextMenuOpenedAt < 250) return;
                 if (el.contextMenu && !el.contextMenu.contains(e.target)) {
                     closeContextMenu();
                 }
@@ -4253,11 +4247,7 @@
                     // Try 'song=' first (actual song ID), then 'rid=' , then '2H=' (obfuscated)
                     const idMatch = srcUrl.match(/[?&](?:song|rid|2H)=([^&]+)/);
                     if (typeMatch && idMatch) {
-                        const songKey = `${typeMatch[1]}_${idMatch[1]}`;
-                        if (state.lastSongInfoLogKey !== songKey) {
-                            console.log(`[Lyrics API] From audio URL: id=${idMatch[1]}, type=${typeMatch[1]}`);
-                            state.lastSongInfoLogKey = songKey;
-                        }
+                        console.log(`[Lyrics API] From audio URL: id=${idMatch[1]}, type=${typeMatch[1]}`);
                         return { id: idMatch[1], type: typeMatch[1], name: null };
                     }
                 }
@@ -4271,11 +4261,7 @@
                     const typeMatch = imgSrc.match(/[?&]type=(\w+)/);
                     const idMatch = imgSrc.match(/[?&](?:song|rid|2H)=([^&]+)/);
                     if (typeMatch && idMatch) {
-                        const songKey = `${typeMatch[1]}_${idMatch[1]}`;
-                        if (state.lastSongInfoLogKey !== songKey) {
-                            console.log(`[Lyrics API] From DOM: id=${idMatch[1]}, type=${typeMatch[1]}`);
-                            state.lastSongInfoLogKey = songKey;
-                        }
+                        console.log(`[Lyrics API] From DOM: id=${idMatch[1]}, type=${typeMatch[1]}`);
                         return { id: idMatch[1], type: typeMatch[1], name: null };
                     }
                 }
@@ -6114,45 +6100,40 @@
             if (!audioObj) return;
 
             // === NEW: Detect song change and fetch lyrics via API ===
-            const now = Date.now();
-            const shouldCheckSongInfo = !state.lastSongInfoCheckAt || (now - state.lastSongInfoCheckAt >= 800);
-            if (shouldCheckSongInfo) {
-                state.lastSongInfoCheckAt = now;
-                const songInfo = getCurrentSongInfo();
-                if (songInfo && songInfo.id && songInfo.type) {
-                    const songKey = `${songInfo.type}_${songInfo.id}`;
-                    if (songKey !== state.lastSongKey && !state.apiLyricsFetching) {
-                        // Song changed! Fetch new lyrics
-                        loadLyricsViaAPI();
-                        return;
+            const songInfo = getCurrentSongInfo();
+            if (songInfo && songInfo.id && songInfo.type) {
+                const songKey = `${songInfo.type}_${songInfo.id}`;
+                if (songKey !== state.lastSongKey && !state.apiLyricsFetching) {
+                    // Song changed! Fetch new lyrics
+                    loadLyricsViaAPI();
+                    return;
+                }
+            } else {
+                // Fallback: if we can't get song info from API path, use DOM method
+                const allLIs = Array.from(document.querySelectorAll('#myhkLrc li'));
+                const liCount = allLIs.length;
+
+                if (liCount === 0) {
+                    if (el.lyrics.dataset.liCount !== "0" && !state.apiLyricsFetching) {
+                        if (!state.lyricClearTimer) {
+                            state.lyricClearTimer = setTimeout(() => {
+                                if (state.parsedLyrics.length === 0) {
+                                    showLyricPlaceholder(audioObj.paused ? 'status_paused' : 'lyrics_no_lyrics');
+                                }
+                                state.lyricClearTimer = null;
+                            }, 500);
+                        }
                     }
                 } else {
-                // Fallback: if we can't get song info from API path, use DOM method
-                    const allLIs = Array.from(document.querySelectorAll('#myhkLrc li'));
-                    const liCount = allLIs.length;
-
-                    if (liCount === 0) {
-                        if (el.lyrics.dataset.liCount !== "0" && !state.apiLyricsFetching) {
-                            if (!state.lyricClearTimer) {
-                                state.lyricClearTimer = setTimeout(() => {
-                                    if (state.parsedLyrics.length === 0) {
-                                        showLyricPlaceholder(audioObj.paused ? 'status_paused' : 'lyrics_no_lyrics');
-                                    }
-                                    state.lyricClearTimer = null;
-                                }, 500);
-                            }
-                        }
-                    } else {
                     // If we have lyrics, cancel any pending clear
-                        if (state.lyricClearTimer) {
-                            clearTimeout(state.lyricClearTimer);
-                            state.lyricClearTimer = null;
-                        }
+                    if (state.lyricClearTimer) {
+                        clearTimeout(state.lyricClearTimer);
+                        state.lyricClearTimer = null;
+                    }
 
-                        if (el.lyrics.dataset.liCount != liCount) {
-                            rebuildLyrics(allLIs);
-                            alignLyricContainer();
-                        }
+                    if (el.lyrics.dataset.liCount != liCount) {
+                        rebuildLyrics(allLIs);
+                        alignLyricContainer();
                     }
                 }
             }

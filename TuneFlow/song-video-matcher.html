@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuneFlow 02 歌曲视频复核工具</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0c1016;
+            --panel: rgba(255, 255, 255, 0.07);
+            --panel-strong: rgba(255, 255, 255, 0.1);
+            --border: rgba(255, 255, 255, 0.12);
+            --text: #f4f7fb;
+            --muted: rgba(244, 247, 251, 0.72);
+            --accent: #78d0ff;
+            --accent-strong: #4abfff;
+            --success: #8ef0b2;
+            --warn: #ffd479;
+            --danger: #ff9b9b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(120, 208, 255, 0.16), transparent 32%),
+                linear-gradient(180deg, #121925 0%, var(--bg) 100%);
+            color: var(--text);
+            padding: 24px;
+        }
+
+        .app {
+            width: min(1240px, 100%);
+            margin: 0 auto;
+            display: grid;
+            gap: 18px;
+        }
+
+        .card {
+            background: rgba(8, 11, 15, 0.84);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 22px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(16px);
+        }
+
+        h1,
+        h2,
+        h3 {
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 28px;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-bottom: 14px;
+        }
+
+        h3 {
+            font-size: 15px;
+            margin-bottom: 12px;
+            color: var(--muted);
+        }
+
+        p {
+            margin: 8px 0 0;
+            line-height: 1.6;
+            color: var(--muted);
+        }
+
+        .toolbar,
+        .row,
+        .stats,
+        .actions,
+        .meta-grid,
+        .inline-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .toolbar {
+            margin-top: 18px;
+        }
+
+        .three-col {
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr 0.9fr;
+            gap: 18px;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        label {
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 13px 14px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            color: var(--text);
+            outline: none;
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 88px;
+            resize: vertical;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: var(--accent-strong);
+            box-shadow: 0 0 0 3px rgba(74, 191, 255, 0.14);
+        }
+
+        button {
+            border: 0;
+            border-radius: 999px;
+            padding: 12px 18px;
+            font: inherit;
+            cursor: pointer;
+            transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .primary {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+            color: #04131e;
+            font-weight: 700;
+        }
+
+        .secondary {
+            background: var(--panel);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .danger {
+            background: rgba(255, 115, 115, 0.16);
+            color: #ffd1d1;
+            border: 1px solid rgba(255, 115, 115, 0.22);
+        }
+
+        .stat {
+            min-width: 120px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 24px;
+            margin-top: 6px;
+        }
+
+        .song-box,
+        .scan-box,
+        .candidate-item {
+            padding: 18px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+        }
+
+        .song-title {
+            font-size: 30px;
+            font-weight: 700;
+            margin-top: 6px;
+        }
+
+        .song-meta {
+            margin-top: 10px;
+            color: var(--muted);
+            display: grid;
+            gap: 6px;
+        }
+
+        .status-line {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+
+        .log,
+        .candidate-list {
+            margin-top: 14px;
+            overflow: auto;
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.24);
+        }
+
+        .log {
+            min-height: 180px;
+            max-height: 260px;
+            font-family: Consolas, "SFMono-Regular", monospace;
+            font-size: 13px;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            color: #cae6ff;
+        }
+
+        .candidate-list {
+            max-height: 580px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .candidate-item {
+            padding: 14px;
+        }
+
+        .candidate-title {
+            font-weight: 700;
+            line-height: 1.45;
+        }
+
+        .candidate-meta {
+            margin-top: 8px;
+            color: var(--muted);
+            display: grid;
+            gap: 5px;
+            font-size: 13px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .pill.warn {
+            color: var(--warn);
+            border-color: rgba(255, 212, 121, 0.25);
+        }
+
+        .pill.success {
+            color: var(--success);
+            border-color: rgba(142, 240, 178, 0.25);
+        }
+
+        .pill.danger {
+            color: var(--danger);
+            border-color: rgba(255, 155, 155, 0.25);
+            background: rgba(255, 115, 115, 0.08);
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .success {
+            color: var(--success);
+        }
+
+        .warn {
+            color: var(--warn);
+        }
+
+        .switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            color: var(--text);
+        }
+
+        .switch input {
+            width: 16px;
+            height: 16px;
+            margin: 0;
+        }
+
+        code {
+            color: #ccecff;
+        }
+
+        @media (max-width: 1100px) {
+            .three-col {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <div class="card">
+            <h1>02 歌曲视频复核工具</h1>
+            <p>推荐先导入自动扫描后的 <code>songs.matched.json</code>，界面会展示每首歌的自动候选结果；你再手动粘贴最终链接或直接套用候选，最后导出新的 <code>songs.matched.json</code>。</p>
+
+            <div class="toolbar">
+                <button class="secondary" id="load-songs-btn">导入 songs.json</button>
+                <button class="primary" id="load-matched-btn">导入 songs.matched.json</button>
+                <button class="secondary" id="export-btn" disabled>导出 songs.matched.json</button>
+                <button class="danger" id="clear-progress-btn" disabled>清空本地进度</button>
+                <label class="switch">
+                    <input type="checkbox" id="review-only-toggle">
+                    <span>仅看待复核</span>
+                </label>
+                <input type="file" id="songs-file-input" accept=".json" hidden>
+                <input type="file" id="matched-file-input" accept=".json" hidden>
+            </div>
+        </div>
+
+        <div class="three-col">
+            <div class="card">
+                <h2>当前歌曲</h2>
+                <div class="song-box">
+                    <div class="muted" id="song-index-label">未加载歌曲</div>
+                    <div class="song-title" id="song-title">请先导入文件</div>
+                    <div class="song-meta" id="song-meta">
+                        <div>歌手：-</div>
+                        <div>专辑：-</div>
+                        <div>当前状态：-</div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="search-query">当前搜索词</label>
+                    <input id="search-query" readonly value="">
+                </div>
+
+                <div class="actions" style="margin-top: 16px;">
+                    <button class="primary" id="search-btn" disabled>打开 B 站搜索</button>
+                    <button class="secondary" id="open-link-btn" disabled>打开当前已选链接</button>
+                </div>
+
+                <div class="field">
+                    <label for="video-input">最终视频链接或 BV 号</label>
+                    <textarea id="video-input"
+                        placeholder="支持手动粘贴 BV、B 站视频链接、移动端播放器链接。"></textarea>
+                </div>
+
+                <div class="actions">
+                    <button class="primary" id="save-next-btn" disabled>保存并下一首</button>
+                    <button class="secondary" id="save-btn" disabled>仅保存当前</button>
+                    <button class="secondary" id="skip-btn" disabled>标记跳过</button>
+                    <button class="secondary" id="prev-btn" disabled>上一首</button>
+                    <button class="secondary" id="next-btn" disabled>下一首</button>
+                </div>
+
+                <div class="status-line" id="status-line">等待导入歌曲</div>
+            </div>
+
+            <div class="card">
+                <h2>自动扫描信息</h2>
+                <div class="scan-box">
+                    <div class="meta-grid" id="scan-summary">
+                        <span class="pill">搜索方式：-</span>
+                        <span class="pill">置信度：-</span>
+                        <span class="pill">得分：-</span>
+                    </div>
+                    <div class="field">
+                        <label for="scan-query">自动扫描搜索词</label>
+                        <input id="scan-query" readonly value="">
+                    </div>
+                    <div class="field">
+                        <label for="scan-reason">扫描说明</label>
+                        <textarea id="scan-reason" readonly></textarea>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>当前已选结果</label>
+                    <div class="scan-box" id="selected-summary">
+                        <div class="muted">尚未选择视频。</div>
+                    </div>
+                </div>
+
+                <div class="log" id="log">尚未开始。</div>
+            </div>
+
+            <div class="card">
+                <h2>自动候选</h2>
+                <p>优先展示自动扫描结果。你可以一键填入候选，再手动修正。</p>
+                <div class="candidate-list" id="candidate-list">
+                    <div class="muted">导入自动扫描结果后，这里会显示候选列表。</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>进度</h2>
+            <div class="stats">
+                <div class="stat">
+                    <div class="muted">总歌曲数</div>
+                    <strong id="stat-total">0</strong>
+                </div>
+                <div class="stat">
+                    <div class="muted">已确认</div>
+                    <strong id="stat-matched">0</strong>
+                </div>
+                <div class="stat">
+                    <div class="muted">待复核</div>
+                    <strong id="stat-review">0</strong>
+                </div>
+                <div class="stat">
+                    <div class="muted">待处理</div>
+                    <strong id="stat-pending">0</strong>
+                </div>
+                <div class="stat">
+                    <div class="muted">已跳过</div>
+                    <strong id="stat-skipped">0</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'tuneflow_song_video_matcher_state_v2';
+
+        const state = {
+            songs: [],
+            index: 0,
+            sourceName: '',
+            matchedName: 'songs.matched.json',
+            reviewOnly: true
+        };
+
+        const el = {
+            loadSongsBtn: document.getElementById('load-songs-btn'),
+            loadMatchedBtn: document.getElementById('load-matched-btn'),
+            exportBtn: document.getElementById('export-btn'),
+            clearProgressBtn: document.getElementById('clear-progress-btn'),
+            songsFileInput: document.getElementById('songs-file-input'),
+            matchedFileInput: document.getElementById('matched-file-input'),
+            reviewOnlyToggle: document.getElementById('review-only-toggle'),
+            songIndexLabel: document.getElementById('song-index-label'),
+            songTitle: document.getElementById('song-title'),
+            songMeta: document.getElementById('song-meta'),
+            searchQuery: document.getElementById('search-query'),
+            searchBtn: document.getElementById('search-btn'),
+            openLinkBtn: document.getElementById('open-link-btn'),
+            videoInput: document.getElementById('video-input'),
+            saveNextBtn: document.getElementById('save-next-btn'),
+            saveBtn: document.getElementById('save-btn'),
+            skipBtn: document.getElementById('skip-btn'),
+            prevBtn: document.getElementById('prev-btn'),
+            nextBtn: document.getElementById('next-btn'),
+            statusLine: document.getElementById('status-line'),
+            scanSummary: document.getElementById('scan-summary'),
+            scanQuery: document.getElementById('scan-query'),
+            scanReason: document.getElementById('scan-reason'),
+            selectedSummary: document.getElementById('selected-summary'),
+            candidateList: document.getElementById('candidate-list'),
+            statTotal: document.getElementById('stat-total'),
+            statMatched: document.getElementById('stat-matched'),
+            statReview: document.getElementById('stat-review'),
+            statPending: document.getElementById('stat-pending'),
+            statSkipped: document.getElementById('stat-skipped'),
+            log: document.getElementById('log')
+        };
+
+        function log(message) {
+            const now = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            if (el.log.textContent === '尚未开始。') {
+                el.log.textContent = '';
+            }
+            el.log.textContent += `[${now}] ${message}\n`;
+            el.log.scrollTop = el.log.scrollHeight;
+        }
+
+        function setStatus(message) {
+            el.statusLine.textContent = message;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function readFileAsJson(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        resolve(JSON.parse(reader.result));
+                    } catch (error) {
+                        reject(new Error(`JSON 解析失败：${error.message}`));
+                    }
+                };
+                reader.onerror = () => reject(new Error('文件读取失败。'));
+                reader.readAsText(file, 'utf-8');
+            });
+        }
+
+        function normalizeSearchQuery(song) {
+            return song?.matchMeta?.query || [song?.title, song?.artist, 'MV'].filter(Boolean).join(' ');
+        }
+
+        function extractBvid(text) {
+            if (!text) return '';
+            const match = String(text).trim().match(/BV[0-9A-Za-z]{10}/i);
+            return match ? match[0].toUpperCase() : '';
+        }
+
+        function normalizeVideoInput(raw) {
+            const text = String(raw || '').trim();
+            if (!text) return null;
+
+            const bvid = extractBvid(text);
+            const pageUrl = bvid ? `https://www.bilibili.com/video/${bvid}` : (text.startsWith('http') ? text : null);
+
+            return {
+                bvid,
+                source: text,
+                pageUrl
+            };
+        }
+
+        function currentSong() {
+            return state.songs[state.index] || null;
+        }
+
+        function getVisibleIndices() {
+            if (!state.reviewOnly) {
+                return state.songs.map((_, index) => index);
+            }
+            return state.songs
+                .map((song, index) => ({ song, index }))
+                .filter(({ song }) => song?.needsReview || song?.matchStatus !== 'matched')
+                .map(({ index }) => index);
+        }
+
+        function currentVisiblePosition() {
+            const visible = getVisibleIndices();
+            const position = visible.indexOf(state.index);
+            return { visible, position };
+        }
+
+        function ensureValidIndex() {
+            if (!state.songs.length) {
+                state.index = 0;
+                return;
+            }
+
+            const visible = getVisibleIndices();
+            if (!visible.length) {
+                state.index = Math.max(0, Math.min(state.index, state.songs.length - 1));
+                return;
+            }
+
+            if (!visible.includes(state.index)) {
+                state.index = visible[0];
+            }
+        }
+
+        function songMatchState(song) {
+            if (song?.matchStatus === 'skipped') return '已跳过';
+            if (song?.video?.bvid || song?.video?.pageUrl) {
+                return song?.needsReview ? '待复核' : '已确认';
+            }
+            return '待处理';
+        }
+
+        function confidenceText(song) {
+            const confidence = song?.matchMeta?.confidence;
+            if (confidence === 'high') return '高';
+            if (confidence === 'medium') return '中';
+            if (confidence === 'low') return '低';
+            return '-';
+        }
+
+        function updateStats() {
+            const total = state.songs.length;
+            const matched = state.songs.filter(song => song?.matchStatus === 'matched' && !song?.needsReview).length;
+            const review = state.songs.filter(song => song?.needsReview).length;
+            const skipped = state.songs.filter(song => song?.matchStatus === 'skipped').length;
+            const pending = state.songs.filter(song => !song?.video?.bvid && !song?.video?.pageUrl && song?.matchStatus !== 'skipped').length;
+
+            el.statTotal.textContent = String(total);
+            el.statMatched.textContent = String(matched);
+            el.statReview.textContent = String(review);
+            el.statSkipped.textContent = String(skipped);
+            el.statPending.textContent = String(pending);
+        }
+
+        function saveLocalProgress() {
+            const payload = {
+                songs: state.songs,
+                index: state.index,
+                sourceName: state.sourceName,
+                matchedName: state.matchedName,
+                reviewOnly: state.reviewOnly
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        }
+
+        function restoreLocalProgress() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return false;
+
+            try {
+                const data = JSON.parse(raw);
+                if (!Array.isArray(data.songs) || !data.songs.length) return false;
+
+                state.songs = data.songs;
+                state.index = Math.max(0, Math.min(data.index || 0, data.songs.length - 1));
+                state.sourceName = data.sourceName || '';
+                state.matchedName = data.matchedName || 'songs.matched.json';
+                state.reviewOnly = data.reviewOnly !== false;
+                ensureValidIndex();
+                render();
+                log(`已恢复本地进度，共 ${state.songs.length} 首歌。`);
+                setStatus('已恢复上次进度');
+                return true;
+            } catch (error) {
+                console.warn(error);
+                return false;
+            }
+        }
+
+        function prepareSongs(list) {
+            return list.map(song => ({
+                ...song,
+                matchStatus: song.matchStatus || (song.video?.bvid || song.video?.pageUrl ? 'matched' : 'pending'),
+                needsReview: Boolean(song.needsReview)
+            }));
+        }
+
+        function applyMatchedData(matchedSongs, fileName) {
+            if (!Array.isArray(matchedSongs) || !matchedSongs.length) {
+                throw new Error('匹配文件里没有歌曲数据。');
+            }
+
+            if (!state.songs.length) {
+                state.songs = prepareSongs(matchedSongs);
+                state.index = 0;
+                state.sourceName = fileName;
+            } else {
+                const map = new Map();
+                matchedSongs.forEach(song => {
+                    map.set(`${song.title || ''}::${song.artist || ''}::${song.album || ''}`, song);
+                });
+
+                state.songs = state.songs.map(song => {
+                    const key = `${song.title || ''}::${song.artist || ''}::${song.album || ''}`;
+                    const incoming = map.get(key);
+                    return incoming ? { ...song, ...incoming } : song;
+                });
+                state.songs = prepareSongs(state.songs);
+            }
+
+            state.reviewOnly = true;
+            state.matchedName = fileName.replace(/\.json$/i, '.matched.json');
+            ensureValidIndex();
+            render();
+            saveLocalProgress();
+        }
+
+        function formatScore(score) {
+            return Number.isFinite(Number(score)) ? Number(score).toFixed(3) : '-';
+        }
+
+        function renderSelectedSummary(song) {
+            const video = song?.video;
+            if (!video?.pageUrl && !video?.bvid) {
+                el.selectedSummary.innerHTML = '<div class="muted">尚未选择视频。</div>';
+                return;
+            }
+
+            el.selectedSummary.innerHTML = `
+                <div class="candidate-title">${escapeHtml(video.title || video.bvid || '当前已选视频')}</div>
+                <div class="candidate-meta">
+                    <div>BV：${escapeHtml(video.bvid || '-')}</div>
+                    <div>作者：${escapeHtml(video.author || '-')}</div>
+                    <div>链接：${escapeHtml(video.pageUrl || video.source || '-')}</div>
+                </div>
+            `;
+        }
+
+        function renderScanSummary(song) {
+            const meta = song?.matchMeta || {};
+            const reason = meta.reason || '暂无自动扫描说明';
+            const pills = [
+                `搜索方式：${meta.method || '-'}`,
+                `置信度：${confidenceText(song)}`,
+                `得分：${formatScore(meta.score)}`
+            ];
+            const pillClass = song?.needsReview ? 'pill warn' : 'pill success';
+
+            el.scanSummary.innerHTML = pills.map(text => `<span class="${pillClass}">${escapeHtml(text)}</span>`).join('');
+            el.scanQuery.value = meta.query || '';
+            el.scanReason.value = Array.isArray(meta.diagnostics) && meta.diagnostics.length
+                ? meta.diagnostics.map(item => JSON.stringify(item)).join('\n')
+                : reason;
+        }
+
+        function useCandidate(index) {
+            const song = currentSong();
+            const candidate = song?.video?.candidates?.[index];
+            if (!candidate) return;
+            el.videoInput.value = candidate.pageUrl || candidate.bvid || '';
+            setStatus(`已填入候选 ${index + 1}`);
+            log(`填入候选：${song.title} -> ${candidate.bvid || candidate.pageUrl}`);
+        }
+
+        function renderCandidates(song) {
+            const candidates = Array.isArray(song?.video?.candidates) ? song.video.candidates : [];
+            if (!candidates.length) {
+                el.candidateList.innerHTML = '<div class="muted">当前歌曲没有自动候选。你可以直接手动粘贴链接处理。</div>';
+                return;
+            }
+
+            el.candidateList.innerHTML = candidates.map((candidate, index) => `
+                <div class="candidate-item">
+                    <div class="inline-controls" style="justify-content: space-between; align-items: center;">
+                        <span class="pill ${index === 0 ? 'success' : ''}">候选 ${index + 1} / 分数 ${formatScore(candidate.score)}</span>
+                        <div class="inline-controls">
+                            <button class="secondary" type="button" data-action="use-candidate" data-index="${index}">填入</button>
+                            <button class="secondary" type="button" data-action="open-candidate" data-index="${index}">打开</button>
+                        </div>
+                    </div>
+                    <div class="candidate-title" style="margin-top: 12px;">${escapeHtml(candidate.title || '(无标题)')}</div>
+                    <div class="candidate-meta">
+                        <div>BV：${escapeHtml(candidate.bvid || '-')}</div>
+                        <div>AID：${escapeHtml(candidate.aid || '-')}</div>
+                        <div>CID：${escapeHtml(candidate.cid || '-')}</div>
+                        <div>链接：${escapeHtml(candidate.pageUrl || '-')}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function render() {
+            ensureValidIndex();
+            const song = currentSong();
+            const hasSongs = !!song;
+            const { visible, position } = currentVisiblePosition();
+
+            el.reviewOnlyToggle.checked = state.reviewOnly;
+            el.exportBtn.disabled = !state.songs.length;
+            el.clearProgressBtn.disabled = !state.songs.length;
+            el.searchBtn.disabled = !hasSongs;
+            el.saveNextBtn.disabled = !hasSongs;
+            el.saveBtn.disabled = !hasSongs;
+            el.skipBtn.disabled = !hasSongs;
+            el.prevBtn.disabled = !hasSongs || (state.reviewOnly ? position <= 0 : state.index <= 0);
+            el.nextBtn.disabled = !hasSongs || (state.reviewOnly ? position < 0 || position >= visible.length - 1 : state.index >= state.songs.length - 1);
+
+            if (!hasSongs) {
+                el.songIndexLabel.textContent = '未加载歌曲';
+                el.songTitle.textContent = '请先导入文件';
+                el.songMeta.innerHTML = '<div>歌手：-</div><div>专辑：-</div><div>当前状态：-</div>';
+                el.searchQuery.value = '';
+                el.videoInput.value = '';
+                el.scanQuery.value = '';
+                el.scanReason.value = '';
+                el.scanSummary.innerHTML = '<span class="pill">搜索方式：-</span><span class="pill">置信度：-</span><span class="pill">得分：-</span>';
+                el.openLinkBtn.disabled = true;
+                el.selectedSummary.innerHTML = '<div class="muted">尚未选择视频。</div>';
+                el.candidateList.innerHTML = '<div class="muted">导入自动扫描结果后，这里会显示候选列表。</div>';
+                updateStats();
+                return;
+            }
+
+            const displayTotal = state.reviewOnly ? visible.length : state.songs.length;
+            const displayIndex = state.reviewOnly ? position + 1 : state.index + 1;
+
+            el.songIndexLabel.textContent = state.reviewOnly
+                ? `复核队列第 ${Math.max(1, displayIndex)} / ${displayTotal} 首`
+                : `第 ${displayIndex} / ${displayTotal} 首`;
+            el.songTitle.textContent = song.title || '(无标题)';
+            el.songMeta.innerHTML = `
+                <div>歌手：${escapeHtml(song.artist || '-')}</div>
+                <div>专辑：${escapeHtml(song.album || '-')}</div>
+                <div>当前状态：${escapeHtml(songMatchState(song))}</div>
+            `;
+            el.searchQuery.value = normalizeSearchQuery(song);
+            el.videoInput.value = song.video?.source || song.video?.pageUrl || song.video?.bvid || '';
+            el.openLinkBtn.disabled = !(song.video?.pageUrl);
+
+            renderScanSummary(song);
+            renderSelectedSummary(song);
+            renderCandidates(song);
+            updateStats();
+        }
+
+        function openSearch() {
+            const song = currentSong();
+            if (!song) return;
+            const query = normalizeSearchQuery(song);
+            const url = `https://search.bilibili.com/all?keyword=${encodeURIComponent(query)}`;
+            window.open(url, '_blank', 'noopener');
+            setStatus(`已打开搜索：${query}`);
+            log(`打开搜索：${query}`);
+        }
+
+        function saveCurrentMatch(markSkipped = false) {
+            const song = currentSong();
+            if (!song) return false;
+
+            const normalized = normalizeVideoInput(el.videoInput.value);
+            if (!normalized && !markSkipped) {
+                setStatus('请先填入 BV 号或视频链接');
+                return false;
+            }
+
+            if (markSkipped) {
+                song.matchStatus = 'skipped';
+                song.needsReview = false;
+                delete song.video;
+                log(`跳过：${song.title} - ${song.artist || '-'}`);
+            } else {
+                const priorVideo = song.video || {};
+                song.matchStatus = 'matched';
+                song.needsReview = false;
+                song.video = {
+                    ...priorVideo,
+                    ...normalized,
+                    source: normalized.source || priorVideo.source || ''
+                };
+                song.matchMeta = {
+                    ...song.matchMeta,
+                    confidence: 'manual',
+                    reason: 'manual_confirmed'
+                };
+                log(`确认匹配：${song.title} -> ${normalized.bvid || normalized.pageUrl || normalized.source}`);
+            }
+
+            saveLocalProgress();
+            render();
+            return true;
+        }
+
+        function goToIndex(nextIndex) {
+            if (!state.songs.length) return;
+
+            if (state.reviewOnly) {
+                const visible = getVisibleIndices();
+                if (!visible.length) return;
+                const currentPos = visible.indexOf(state.index);
+                const targetPos = Math.max(0, Math.min(nextIndex, visible.length - 1));
+                state.index = visible[currentPos >= 0 ? targetPos : 0];
+            } else {
+                state.index = Math.max(0, Math.min(nextIndex, state.songs.length - 1));
+            }
+
+            render();
+            saveLocalProgress();
+        }
+
+        function moveRelative(offset) {
+            if (!state.songs.length) return;
+            if (state.reviewOnly) {
+                const { position } = currentVisiblePosition();
+                goToIndex((position < 0 ? 0 : position) + offset);
+            } else {
+                goToIndex(state.index + offset);
+            }
+        }
+
+        function exportMatchedJson() {
+            if (!state.songs.length) return;
+            const fileName = state.matchedName || 'songs.matched.json';
+            const blob = new Blob([`${JSON.stringify(state.songs, null, 2)}\n`], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = fileName;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+            setStatus(`已导出 ${fileName}`);
+            log(`导出文件：${fileName}`);
+        }
+
+        el.loadSongsBtn.addEventListener('click', () => el.songsFileInput.click());
+        el.loadMatchedBtn.addEventListener('click', () => el.matchedFileInput.click());
+        el.exportBtn.addEventListener('click', exportMatchedJson);
+        el.searchBtn.addEventListener('click', openSearch);
+        el.prevBtn.addEventListener('click', () => moveRelative(-1));
+        el.nextBtn.addEventListener('click', () => moveRelative(1));
+        el.reviewOnlyToggle.addEventListener('change', () => {
+            state.reviewOnly = el.reviewOnlyToggle.checked;
+            ensureValidIndex();
+            render();
+            saveLocalProgress();
+            setStatus(state.reviewOnly ? '已切到仅看待复核' : '已切到查看全部歌曲');
+        });
+        el.skipBtn.addEventListener('click', () => {
+            if (saveCurrentMatch(true)) {
+                moveRelative(1);
+            }
+        });
+        el.saveBtn.addEventListener('click', () => {
+            if (saveCurrentMatch(false)) {
+                setStatus('已保存当前匹配');
+            }
+        });
+        el.saveNextBtn.addEventListener('click', () => {
+            if (saveCurrentMatch(false)) {
+                moveRelative(1);
+                setStatus('已保存并前进到下一首');
+            }
+        });
+        el.openLinkBtn.addEventListener('click', () => {
+            const song = currentSong();
+            const url = song?.video?.pageUrl;
+            if (url) window.open(url, '_blank', 'noopener');
+        });
+        el.candidateList.addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-action]');
+            if (!button) return;
+            const index = Number(button.dataset.index);
+            const song = currentSong();
+            const candidate = song?.video?.candidates?.[index];
+            if (!candidate) return;
+
+            if (button.dataset.action === 'use-candidate') {
+                useCandidate(index);
+            }
+
+            if (button.dataset.action === 'open-candidate' && candidate.pageUrl) {
+                window.open(candidate.pageUrl, '_blank', 'noopener');
+            }
+        });
+        el.clearProgressBtn.addEventListener('click', () => {
+            if (!confirm('确认清空当前本地进度吗？')) return;
+            localStorage.removeItem(STORAGE_KEY);
+            state.songs = [];
+            state.index = 0;
+            state.sourceName = '';
+            state.matchedName = 'songs.matched.json';
+            state.reviewOnly = true;
+            el.log.textContent = '尚未开始。';
+            setStatus('已清空本地进度');
+            render();
+        });
+
+        el.songsFileInput.addEventListener('change', async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            try {
+                const songs = await readFileAsJson(file);
+                if (!Array.isArray(songs) || !songs.length) {
+                    throw new Error('songs.json 中没有歌曲数组。');
+                }
+
+                state.songs = prepareSongs(songs.map(song => ({ ...song })));
+                state.index = 0;
+                state.sourceName = file.name;
+                state.matchedName = file.name.replace(/\.json$/i, '.matched.json');
+                state.reviewOnly = false;
+                el.log.textContent = '';
+                log(`已导入歌曲文件：${file.name}，共 ${songs.length} 首。`);
+                log('提示：纯 songs.json 不带自动候选，若要复核自动扫描结果，请导入 songs.matched.json。');
+                setStatus(`已导入 ${songs.length} 首歌`);
+                saveLocalProgress();
+                render();
+            } catch (error) {
+                setStatus('导入失败');
+                log(`错误：${error.message}`);
+            } finally {
+                event.target.value = '';
+            }
+        });
+
+        el.matchedFileInput.addEventListener('change', async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            try {
+                const songs = await readFileAsJson(file);
+                applyMatchedData(songs, file.name);
+                log(`已导入自动扫描结果：${file.name}`);
+                setStatus('已导入自动扫描结果');
+            } catch (error) {
+                setStatus('导入失败');
+                log(`错误：${error.message}`);
+            } finally {
+                event.target.value = '';
+            }
+        });
+
+        if (!restoreLocalProgress()) {
+            render();
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuneFlow 歌单导出工具</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0b0d10;
+            --panel: rgba(255, 255, 255, 0.06);
+            --panel-border: rgba(255, 255, 255, 0.12);
+            --text: #f5f7fa;
+            --muted: rgba(245, 247, 250, 0.7);
+            --accent: #8fd3ff;
+            --accent-strong: #66c1ff;
+            --success: #8ef0b2;
+            --warn: #ffd479;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
+            background:
+                radial-gradient(circle at top, rgba(102, 193, 255, 0.12), transparent 35%),
+                linear-gradient(180deg, #10151c 0%, var(--bg) 100%);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .app {
+            width: min(980px, 100%);
+            padding: 28px;
+            border-radius: 22px;
+            background: rgba(7, 10, 14, 0.86);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 28px 60px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(18px);
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: 28px;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .grid {
+            display: grid;
+            gap: 16px;
+            margin-top: 22px;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 0.92fr 1.08fr;
+            gap: 18px;
+            margin-top: 20px;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        input {
+            width: 100%;
+            padding: 13px 14px;
+            border-radius: 14px;
+            border: 1px solid var(--panel-border);
+            background: var(--panel);
+            color: var(--text);
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--accent-strong);
+            box-shadow: 0 0 0 3px rgba(102, 193, 255, 0.15);
+        }
+
+        .actions,
+        .sub-actions,
+        .stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .actions {
+            margin-top: 22px;
+        }
+
+        .sub-actions {
+            margin-top: 14px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 999px;
+            padding: 12px 20px;
+            font: inherit;
+            cursor: pointer;
+            transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .primary {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+            color: #06131d;
+            font-weight: 700;
+        }
+
+        .secondary {
+            background: var(--panel);
+            color: var(--text);
+            border: 1px solid var(--panel-border);
+        }
+
+        .status {
+            margin-top: 18px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--panel-border);
+            color: var(--muted);
+            min-height: 46px;
+        }
+
+        .panel,
+        .log {
+            border-radius: 18px;
+            border: 1px solid var(--panel-border);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .panel {
+            padding: 18px;
+        }
+
+        .stats {
+            margin-top: 16px;
+        }
+
+        .stat {
+            min-width: 110px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--panel-border);
+        }
+
+        .stat strong {
+            display: block;
+            margin-top: 6px;
+            font-size: 22px;
+        }
+
+        .playlist-list {
+            margin-top: 14px;
+            max-height: 420px;
+            overflow: auto;
+            display: grid;
+            gap: 10px;
+        }
+
+        .playlist-item {
+            display: grid;
+            gap: 6px;
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid var(--panel-border);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .playlist-item.selected {
+            border-color: rgba(102, 193, 255, 0.45);
+            box-shadow: 0 0 0 2px rgba(102, 193, 255, 0.12);
+        }
+
+        .playlist-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .playlist-title {
+            font-weight: 700;
+            line-height: 1.5;
+        }
+
+        .playlist-meta {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--panel-border);
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .success {
+            color: var(--success);
+        }
+
+        .warn {
+            color: var(--warn);
+        }
+
+        .log {
+            margin-top: 16px;
+            min-height: 220px;
+            padding: 14px;
+            font-family: Consolas, "SFMono-Regular", monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            line-height: 1.55;
+            color: #cbe6ff;
+            overflow: auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 900px) {
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <h1>01 歌单导出工具</h1>
+        <p>先读取 myhkw 歌单列表，再勾选你要导出的歌单，最后下载为 <code>songs.json</code>。</p>
+
+        <div class="grid">
+            <div class="field">
+                <label for="key-input">myhkw Key</label>
+                <input id="key-input" placeholder="请输入你自己的 myhkw key">
+            </div>
+            <div class="field">
+                <label for="filename-input">导出文件名</label>
+                <input id="filename-input" value="songs.json" placeholder="例如 songs.json">
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="primary" id="load-btn">第 1 步：读取歌单</button>
+            <button class="primary" id="export-btn" disabled>第 2 步：导出已选歌单</button>
+            <button class="secondary" id="reset-btn">恢复默认 Key</button>
+        </div>
+
+        <div class="status" id="status">等待操作</div>
+
+        <div class="two-col">
+            <div class="panel">
+                <div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+                    <div>
+                        <strong>歌单选择</strong>
+                        <div class="playlist-meta">支持多选。默认读取后全部选中。</div>
+                    </div>
+                    <span class="pill" id="selection-pill">未加载</span>
+                </div>
+
+                <div class="sub-actions">
+                    <button class="secondary" id="select-all-btn" disabled>全选</button>
+                    <button class="secondary" id="clear-all-btn" disabled>全不选</button>
+                </div>
+
+                <div class="playlist-list" id="playlist-list">
+                    <div class="playlist-meta">点击“第 1 步：读取歌单”后，这里会显示可选歌单。</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <strong>概览</strong>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="playlist-meta">歌单数</div>
+                        <strong id="stat-playlists">0</strong>
+                    </div>
+                    <div class="stat">
+                        <div class="playlist-meta">已选歌单</div>
+                        <strong id="stat-selected-playlists">0</strong>
+                    </div>
+                    <div class="stat">
+                        <div class="playlist-meta">预计歌曲数</div>
+                        <strong id="stat-selected-songs">0</strong>
+                    </div>
+                </div>
+
+                <div class="log" id="log">尚未开始导出。</div>
+            </div>
+        </div>
+
+        <div id="hidden-host" class="hidden"></div>
+    </div>
+
+    <script>
+        const loadBtn = document.getElementById('load-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const selectAllBtn = document.getElementById('select-all-btn');
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        const keyInput = document.getElementById('key-input');
+        const filenameInput = document.getElementById('filename-input');
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+        const playlistListEl = document.getElementById('playlist-list');
+        const selectionPillEl = document.getElementById('selection-pill');
+        const statPlaylistsEl = document.getElementById('stat-playlists');
+        const statSelectedPlaylistsEl = document.getElementById('stat-selected-playlists');
+        const statSelectedSongsEl = document.getElementById('stat-selected-songs');
+
+        const state = {
+            activeScript: null,
+            playlistSource: [],
+            playlistSummary: [],
+            selectedIndexes: new Set(),
+            playlistMode: 'script'
+        };
+
+        function log(message) {
+            if (logEl.textContent === '尚未开始导出。') {
+                logEl.textContent = '';
+            }
+            logEl.textContent += `${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function setStatus(message) {
+            statusEl.textContent = message;
+        }
+
+        function resetGlobals() {
+            try { delete window.songSheetList; } catch (_) { window.songSheetList = undefined; }
+            try { delete window.songSheetListData; } catch (_) { window.songSheetListData = undefined; }
+        }
+
+        function cleanupScript() {
+            if (state.activeScript) {
+                state.activeScript.remove();
+                state.activeScript = null;
+            }
+            resetGlobals();
+        }
+
+        function findArray(source, keys) {
+            for (const key of keys) {
+                if (Array.isArray(source?.[key])) return source[key];
+            }
+            return null;
+        }
+
+        function findString(source, keys) {
+            for (const key of keys) {
+                const value = source?.[key];
+                if (typeof value === 'string' && value.trim()) return value.trim();
+            }
+            return null;
+        }
+
+        function findArtistArray(album) {
+            return findArray(album, [
+                'singerNames',
+                'songSingerNames',
+                'songArtists',
+                'artistNames',
+                'artists',
+                'authors',
+                'songAuthors',
+                'songSingers'
+            ]);
+        }
+
+        function findCoverArray(album) {
+            return findArray(album, [
+                'songPics',
+                'songPictures',
+                'songCovers',
+                'songImages',
+                'covers',
+                'imgs',
+                'pics'
+            ]);
+        }
+
+        function findDurationArray(album) {
+            return findArray(album, [
+                'songTimes',
+                'songDurations',
+                'durations',
+                'times'
+            ]);
+        }
+
+        function normalizeTrackDuration(value) {
+            if (value == null || value === '') return null;
+            if (typeof value === 'number') return value;
+
+            const text = String(value).trim();
+            if (/^\d+$/.test(text)) return Number(text);
+
+            const parts = text.split(':').map(Number);
+            if (parts.every(Number.isFinite)) {
+                return parts.reduce((total, current) => total * 60 + current, 0);
+            }
+
+            return text;
+        }
+
+        function getAlbumTitle(album, albumIndex) {
+            return findString(album, ['title', 'name', 'albumName', 'sheetName']) || `Album ${albumIndex + 1}`;
+        }
+
+        function summarizeSongSheetList(songSheetList) {
+            return songSheetList.map((album, albumIndex) => {
+                const ids = findArray(album, ['rids', 'songIds', 'songList']) || [];
+                const types = findArray(album, ['songFrom3', 'songFrom', 'songTypes']) || [];
+                const titles = findArray(album, ['songNames', 'songName', 'titles', 'names']) || [];
+                const artists = findArtistArray(album) || [];
+                const covers = findCoverArray(album) || [];
+                const durations = findDurationArray(album) || [];
+
+                return {
+                    index: albumIndex,
+                    labelIndex: albumIndex + 1,
+                    title: getAlbumTitle(album, albumIndex),
+                    count: Math.max(ids.length, types.length, titles.length, artists.length, covers.length, durations.length)
+                };
+            });
+        }
+
+        function flattenSongSheetList(songSheetList, key) {
+            const songs = [];
+
+            songSheetList.forEach((album, albumIndex) => {
+                const ids = findArray(album, ['rids', 'songIds', 'songList']) || [];
+                const types = findArray(album, ['songFrom3', 'songFrom', 'songTypes']) || [];
+                const titles = findArray(album, ['songNames', 'songName', 'titles', 'names']) || [];
+                const artists = findArtistArray(album) || [];
+                const covers = findCoverArray(album) || [];
+                const durations = findDurationArray(album) || [];
+
+                const albumTitle = getAlbumTitle(album, albumIndex);
+                const albumCover = findString(album, ['cover', 'img', 'pic']);
+                const count = Math.max(ids.length, types.length, titles.length, artists.length, covers.length, durations.length);
+
+                for (let songIndex = 0; songIndex < count; songIndex += 1) {
+                    const title = titles[songIndex] ?? '';
+                    const artist = artists[songIndex] ?? '';
+
+                    songs.push({
+                        order: songs.length + 1,
+                        title: typeof title === 'string' ? title.trim() : String(title || '').trim(),
+                        artist: typeof artist === 'string' ? artist.trim() : String(artist || '').trim(),
+                        id: ids[songIndex] ?? null,
+                        type: types[songIndex] ?? null,
+                        album: albumTitle,
+                        albumIndex,
+                        songIndex,
+                        cover: covers[songIndex] || albumCover || null,
+                        duration: normalizeTrackDuration(durations[songIndex])
+                    });
+                }
+            });
+
+            return songs.filter(song => song.title || song.id || song.artist);
+        }
+
+        function downloadJson(filename, data) {
+            const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = filename;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function waitForSongSheetList(timeoutMs = 8000) {
+            return new Promise((resolve, reject) => {
+                const started = Date.now();
+                const timer = window.setInterval(() => {
+                    const list = window.songSheetList || window.songSheetListData;
+                    if (Array.isArray(list) && list.length > 0) {
+                        clearInterval(timer);
+                        resolve(list);
+                        return;
+                    }
+                    if (Date.now() - started > timeoutMs) {
+                        clearInterval(timer);
+                        reject(new Error('等待 songSheetList 超时，请确认 key 是否有效。'));
+                    }
+                }, 250);
+            });
+        }
+
+        function waitForPlaylistReady(timeoutMs = 15000) {
+            return new Promise((resolve, reject) => {
+                const started = Date.now();
+                const timer = window.setInterval(() => {
+                    const albumNodes = document.querySelectorAll('.myhkplaylist .album-list ul li');
+                    const playlistRoot = document.querySelector('.myhkplaylist');
+                    if (playlistRoot && albumNodes.length > 0) {
+                        clearInterval(timer);
+                        resolve();
+                        return;
+                    }
+                    if (Date.now() - started > timeoutMs) {
+                        clearInterval(timer);
+                        reject(new Error('等待 myhkw 播放列表超时，请确认播放器已正常加载。'));
+                    }
+                }, 250);
+            });
+        }
+
+        function currentSongListSnapshot() {
+            const songNodes = Array.from(document.querySelectorAll('.myhkplaylist .song-list ul li'));
+            return {
+                count: songNodes.length,
+                first: songNodes[0]?.innerText?.trim() || ''
+            };
+        }
+
+        function waitForSongListChange(previousSnapshot, timeoutMs = 6000) {
+            return new Promise((resolve) => {
+                const started = Date.now();
+                const timer = window.setInterval(() => {
+                    const nextSnapshot = currentSongListSnapshot();
+                    const hasChanged = nextSnapshot.count > 0 && (
+                        nextSnapshot.count !== previousSnapshot.count ||
+                        nextSnapshot.first !== previousSnapshot.first
+                    );
+
+                    if (hasChanged || (nextSnapshot.count > 0 && Date.now() - started > 800)) {
+                        clearInterval(timer);
+                        setTimeout(resolve, 220);
+                        return;
+                    }
+
+                    if (Date.now() - started > timeoutMs) {
+                        clearInterval(timer);
+                        setTimeout(resolve, 220);
+                    }
+                }, 120);
+            });
+        }
+
+        function scrapeSongsFromCurrentDom(albumName, key, albumIndex) {
+            const songNodes = Array.from(document.querySelectorAll('.myhkplaylist .song-list ul li'));
+            return songNodes.map((node, songIndex) => {
+                const fullText = node.innerText?.trim() || '';
+                const parts = fullText.split(/\s*-\s*/);
+                const title = parts[0]?.trim() || fullText;
+                const artist = parts.length > 1 ? parts.slice(1).join(' - ').trim() : '';
+
+                return {
+                    order: 0,
+                    title,
+                    artist,
+                    id: null,
+                    type: null,
+                    album: albumName,
+                    albumIndex,
+                    songIndex,
+                    cover: null,
+                    duration: null
+                };
+            }).filter(song => song.title);
+        }
+
+        async function buildPlaylistSummaryFromDom() {
+            await waitForPlaylistReady();
+            const albumNodes = Array.from(document.querySelectorAll('.myhkplaylist .album-list ul li'));
+            const summary = [];
+
+            for (let albumIndex = 0; albumIndex < albumNodes.length; albumIndex += 1) {
+                const liveAlbumNodes = Array.from(document.querySelectorAll('.myhkplaylist .album-list ul li'));
+                const albumNode = liveAlbumNodes[albumIndex];
+                if (!albumNode) continue;
+
+                const albumName = albumNode.innerText.replace('播放列表 > ', '').trim() || `Album ${albumIndex + 1}`;
+                const before = currentSongListSnapshot();
+                albumNode.click();
+                await waitForSongListChange(before);
+                const count = document.querySelectorAll('.myhkplaylist .song-list ul li').length;
+
+                summary.push({
+                    index: albumIndex,
+                    labelIndex: albumIndex + 1,
+                    title: albumName,
+                    count
+                });
+            }
+
+            return summary;
+        }
+
+        async function exportSongsFromDomSelected(key) {
+            await waitForPlaylistReady();
+            const songs = [];
+            const seen = new Set();
+            const selectedIndexes = Array.from(state.selectedIndexes).sort((a, b) => a - b);
+
+            for (const albumIndex of selectedIndexes) {
+                const liveAlbumNodes = Array.from(document.querySelectorAll('.myhkplaylist .album-list ul li'));
+                const albumNode = liveAlbumNodes[albumIndex];
+                if (!albumNode) continue;
+
+                const albumName = albumNode.innerText.replace('播放列表 > ', '').trim() || `Album ${albumIndex + 1}`;
+                const before = currentSongListSnapshot();
+                albumNode.click();
+                await waitForSongListChange(before);
+
+                const albumSongs = scrapeSongsFromCurrentDom(albumName, key, albumIndex);
+                log(`已抓取歌单：${albumName}，歌曲 ${albumSongs.length} 首`);
+
+                albumSongs.forEach((song) => {
+                    const dedupeKey = `${song.album}::${song.title}::${song.artist}`;
+                    if (seen.has(dedupeKey)) return;
+                    seen.add(dedupeKey);
+                    songs.push({
+                        ...song,
+                        order: songs.length + 1
+                    });
+                });
+            }
+
+            return songs;
+        }
+
+        function renderPlaylistList() {
+            if (!state.playlistSummary.length) {
+                playlistListEl.innerHTML = '<div class="playlist-meta">点击“第 1 步：读取歌单”后，这里会显示可选歌单。</div>';
+                return;
+            }
+
+            playlistListEl.innerHTML = state.playlistSummary.map((album) => {
+                const checked = state.selectedIndexes.has(album.index);
+                return `
+                    <label class="playlist-item ${checked ? 'selected' : ''}" data-index="${album.index}">
+                        <div class="playlist-row">
+                            <input type="checkbox" data-role="playlist-checkbox" data-index="${album.index}" ${checked ? 'checked' : ''}>
+                            <div class="playlist-title">${album.labelIndex}. ${album.title}</div>
+                        </div>
+                        <div class="playlist-meta">预计 ${album.count} 首歌</div>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function updateSelectionSummary() {
+            const selectedPlaylists = state.playlistSummary.filter((album) => state.selectedIndexes.has(album.index));
+            const selectedSongCount = selectedPlaylists.reduce((sum, album) => sum + album.count, 0);
+
+            statPlaylistsEl.textContent = String(state.playlistSummary.length);
+            statSelectedPlaylistsEl.textContent = String(selectedPlaylists.length);
+            statSelectedSongsEl.textContent = String(selectedSongCount);
+            selectionPillEl.textContent = selectedPlaylists.length ? `已选 ${selectedPlaylists.length} 个歌单` : '未选歌单';
+
+            exportBtn.disabled = selectedPlaylists.length === 0 || state.playlistSource.length === 0;
+            selectAllBtn.disabled = state.playlistSummary.length === 0;
+            clearAllBtn.disabled = state.playlistSummary.length === 0;
+        }
+
+        function setAllSelections(checked) {
+            state.selectedIndexes = checked
+                ? new Set(state.playlistSummary.map((album) => album.index))
+                : new Set();
+            renderPlaylistList();
+            updateSelectionSummary();
+        }
+
+        async function loadPlaylists() {
+            const key = keyInput.value.trim();
+
+            if (!key) {
+                setStatus('请先输入你自己的 myhkw key');
+                return;
+            }
+
+            loadBtn.disabled = true;
+            exportBtn.disabled = true;
+            cleanupScript();
+            state.playlistSource = [];
+            state.playlistSummary = [];
+            state.selectedIndexes = new Set();
+            renderPlaylistList();
+            updateSelectionSummary();
+
+            setStatus('正在读取 myhkw 歌单...');
+            log('已收到 myhkw key，开始读取歌单...');
+
+            try {
+                const script = document.createElement('script');
+                script.id = 'myhk';
+                script.type = 'text/javascript';
+                script.src = `https://myhkw.cn/api/player/${key}`;
+                script.setAttribute('key', key);
+                script.setAttribute('m', '1');
+                script.async = true;
+                script.defer = true;
+                state.activeScript = script;
+                document.body.appendChild(script);
+
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error('myhkw 播放器脚本加载失败。'));
+                });
+
+                try {
+                    const songSheetList = await waitForSongSheetList();
+                    state.playlistMode = 'script';
+                    state.playlistSource = songSheetList;
+                    state.playlistSummary = summarizeSongSheetList(songSheetList);
+                    log('已通过 songSheetList 读取歌单。');
+                } catch (error) {
+                    log(`未直接拿到 songSheetList：${error.message}`);
+                    state.playlistMode = 'dom';
+                    state.playlistSource = [];
+                    state.playlistSummary = await buildPlaylistSummaryFromDom();
+                    log('已回退到 DOM 扫描歌单列表。');
+                }
+
+                state.selectedIndexes = new Set(state.playlistSummary.map((album) => album.index));
+
+                renderPlaylistList();
+                updateSelectionSummary();
+
+                log(`已读取 ${state.playlistSummary.length} 个歌单。`);
+                state.playlistSummary.forEach((album) => {
+                    log(`- ${album.labelIndex}. ${album.title} (${album.count} 首)`);
+                });
+                setStatus(`已读取 ${state.playlistSummary.length} 个歌单，请勾选后导出。`);
+            } catch (error) {
+                setStatus('读取歌单失败');
+                log(`错误：${error.message}`);
+            } finally {
+                loadBtn.disabled = false;
+            }
+        }
+
+        function getSelectedSongSheetList() {
+            return state.playlistSource.filter((_, albumIndex) => state.selectedIndexes.has(albumIndex));
+        }
+
+        async function exportSongs() {
+            const key = keyInput.value.trim();
+            const filename = (filenameInput.value.trim() || 'songs.json').replace(/[\\/:*?"<>|]+/g, '_');
+            const selectedSongSheetList = getSelectedSongSheetList();
+
+            if (!key) {
+                setStatus('请先输入你自己的 myhkw key');
+                return;
+            }
+
+            if (!selectedSongSheetList.length) {
+                setStatus('请至少选择一个歌单');
+                return;
+            }
+
+            exportBtn.disabled = true;
+            setStatus('正在导出所选歌单...');
+
+            try {
+                const songs = state.playlistMode === 'dom'
+                    ? await exportSongsFromDomSelected(key)
+                    : flattenSongSheetList(selectedSongSheetList, key);
+                if (!songs.length) {
+                    throw new Error('已选择歌单，但没有整理出歌曲。');
+                }
+
+                downloadJson(filename, songs);
+                setStatus(`导出成功，共 ${songs.length} 首歌`);
+                log(`导出成功，共 ${songs.length} 首歌。`);
+                log(`文件名：${filename}`);
+            } catch (error) {
+                setStatus('导出失败');
+                log(`错误：${error.message}`);
+            } finally {
+                exportBtn.disabled = false;
+                updateSelectionSummary();
+            }
+        }
+
+        loadBtn.addEventListener('click', loadPlaylists);
+        exportBtn.addEventListener('click', exportSongs);
+        resetBtn.addEventListener('click', () => {
+            keyInput.value = '';
+        });
+        selectAllBtn.addEventListener('click', () => setAllSelections(true));
+        clearAllBtn.addEventListener('click', () => setAllSelections(false));
+
+        playlistListEl.addEventListener('change', (event) => {
+            const checkbox = event.target.closest('input[data-role="playlist-checkbox"]');
+            if (!checkbox) return;
+            const index = Number(checkbox.dataset.index);
+            if (checkbox.checked) {
+                state.selectedIndexes.add(index);
+            } else {
+                state.selectedIndexes.delete(index);
+            }
+            renderPlaylistList();
+            updateSelectionSummary();
+        });
+
+        renderPlaylistList();
+        updateSelectionSummary();
+    </script>
+</body>
+
+</html>
