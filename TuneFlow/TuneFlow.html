@@ -2104,7 +2104,6 @@
             bilibiliLocalMapScriptUrl: 'https://upyun.coren.xin/web/files/songs.player-map.js',
             bilibiliVideoMuted: true,
             bilibiliVideoAutoplay: true,
-            bilibiliVideoAutoResumeEnabled: true,
             videoCoverSongKey: '',
             videoCoverFetchKey: '',
             videoCoverLookupTimer: null,
@@ -2112,11 +2111,6 @@
             bilibiliLocalMapData: null,
             bilibiliLocalMapPromise: null,
             bilibiliLocalMapStatus: 'idle',
-            bilibiliResumeTimer: null,
-            bilibiliKeepAliveTimer: null,
-            bilibiliLastVisibilityHiddenAt: 0,
-            bilibiliLastResumeAttemptAt: 0,
-            bilibiliResumeAttemptCount: 0,
             myhkwKey: null,
             activeAlbumId: null, // (Request 1) 新状态： 'local' 或 myhkw ID (暂不用)
             crossAlbumRandom: false, // (Req New)
@@ -2698,192 +2692,7 @@
             }
         }
 
-        function dispatchMouseSequence(target, rect, type, clientX, clientY) {
-            if (!target) return;
-            const options = {
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                clientX,
-                clientY,
-                screenX: clientX,
-                screenY: clientY
-            };
-            try {
-                target.dispatchEvent(new MouseEvent(type, options));
-            } catch (error) {
-                console.warn(`Failed to dispatch ${type}:`, error);
-            }
-        }
-
-        function nudgeBilibiliPlayerUiHide() {
-            if (state.coverMode !== 'bilibili_video' || el.coverVideoFrame.classList.contains('hidden')) {
-                return;
-            }
-
-            const shellRect = el.coverMediaShell.getBoundingClientRect();
-            const frameRect = el.coverVideoFrame.getBoundingClientRect();
-            if (!shellRect.width || !frameRect.width) return;
-
-            const enterX = Math.round(frameRect.left + frameRect.width * 0.5);
-            const enterY = Math.round(frameRect.top + frameRect.height * 0.5);
-            const leaveX = Math.max(1, Math.round(shellRect.left - 12));
-            const leaveY = Math.max(1, Math.round(shellRect.top - 12));
-
-            dispatchMouseSequence(el.coverVideoFrame, frameRect, 'mouseenter', enterX, enterY);
-            dispatchMouseSequence(el.coverVideoFrame, frameRect, 'mouseover', enterX, enterY);
-            dispatchMouseSequence(el.coverVideoFrame, frameRect, 'mousemove', enterX, enterY);
-
-            setTimeout(() => {
-                dispatchMouseSequence(el.coverMediaShell, shellRect, 'mousemove', leaveX, leaveY);
-                dispatchMouseSequence(el.coverVideoFrame, frameRect, 'mouseout', leaveX, leaveY);
-                dispatchMouseSequence(el.coverVideoFrame, frameRect, 'mouseleave', leaveX, leaveY);
-                dispatchMouseSequence(document.body, shellRect, 'mousemove', leaveX, leaveY);
-                if (document.activeElement === el.coverVideoFrame) {
-                    el.coverVideoFrame.blur();
-                }
-            }, 180);
-        }
-
-        function shouldKeepBilibiliVideoAlive() {
-            return state.bilibiliVideoAutoResumeEnabled
-                && state.coverMode === 'bilibili_video'
-                && !el.coverVideoFrame.classList.contains('hidden')
-                && Boolean(state.currentVideoCover?.embedUrl);
-        }
-
-        function clearBilibiliResumeTimer() {
-            if (state.bilibiliResumeTimer) {
-                clearTimeout(state.bilibiliResumeTimer);
-                state.bilibiliResumeTimer = null;
-            }
-        }
-
-        function stopBilibiliVideoKeepAlive() {
-            clearBilibiliResumeTimer();
-            if (state.bilibiliKeepAliveTimer) {
-                clearInterval(state.bilibiliKeepAliveTimer);
-                state.bilibiliKeepAliveTimer = null;
-            }
-            state.bilibiliResumeAttemptCount = 0;
-        }
-
-        function dispatchPointerSequence(target, clientX, clientY) {
-            if (!target) return;
-            const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
-            events.forEach((type) => {
-                const baseOptions = {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window,
-                    clientX,
-                    clientY,
-                    screenX: clientX,
-                    screenY: clientY
-                };
-
-                try {
-                    if (type.startsWith('pointer') && typeof PointerEvent === 'function') {
-                        target.dispatchEvent(new PointerEvent(type, {
-                            ...baseOptions,
-                            pointerId: 1,
-                            pointerType: 'mouse',
-                            isPrimary: true
-                        }));
-                    } else {
-                        target.dispatchEvent(new MouseEvent(type, baseOptions));
-                    }
-                } catch (error) {
-                    console.warn(`[TuneFlow] Failed to dispatch ${type}:`, error);
-                }
-            });
-        }
-
-        function clickBilibiliVideoCenter() {
-            if (!shouldKeepBilibiliVideoAlive()) return;
-            const frameRect = el.coverVideoFrame.getBoundingClientRect();
-            if (!frameRect.width || !frameRect.height) return;
-
-            const clientX = Math.round(frameRect.left + frameRect.width * 0.5);
-            const clientY = Math.round(frameRect.top + frameRect.height * 0.5);
-            const topElement = document.elementFromPoint(clientX, clientY);
-
-            dispatchPointerSequence(el.coverVideoFrame, clientX, clientY);
-
-            if (topElement && topElement !== el.coverVideoFrame) {
-                dispatchPointerSequence(topElement, clientX, clientY);
-            }
-        }
-
-        function attemptResumeBilibiliVideo({ clickCenter = false } = {}) {
-            if (!shouldKeepBilibiliVideoAlive()) return;
-
-            state.bilibiliLastResumeAttemptAt = Date.now();
-            state.bilibiliResumeAttemptCount += 1;
-
-            try {
-                if (el.coverVideoFrame.contentWindow?.focus) {
-                    el.coverVideoFrame.contentWindow.focus();
-                }
-            } catch (error) {
-                console.warn('[TuneFlow] Failed to focus bilibili frame:', error);
-            }
-
-            try {
-                el.coverVideoFrame.focus?.();
-            } catch (error) {
-                console.warn('[TuneFlow] Failed to focus bilibili iframe element:', error);
-            }
-
-            nudgeBilibiliPlayerUiHide();
-            if (clickCenter) {
-                setTimeout(() => {
-                    clickBilibiliVideoCenter();
-                    setTimeout(nudgeBilibiliPlayerUiHide, 260);
-                }, 120);
-            }
-        }
-
-        function scheduleBilibiliResumeWave() {
-            if (!shouldKeepBilibiliVideoAlive()) return;
-            clearBilibiliResumeTimer();
-
-            const delays = [320, 1400];
-            let step = 0;
-            const run = () => {
-                attemptResumeBilibiliVideo({ clickCenter: true });
-                if (step < delays.length - 1) {
-                    step += 1;
-                    state.bilibiliResumeTimer = setTimeout(run, delays[step] - delays[step - 1]);
-                } else {
-                    state.bilibiliResumeTimer = null;
-                }
-            };
-
-            state.bilibiliResumeAttemptCount = 0;
-            state.bilibiliResumeTimer = setTimeout(run, delays[0]);
-        }
-
-        function startBilibiliVideoKeepAlive() {
-            if (!shouldKeepBilibiliVideoAlive()) {
-                stopBilibiliVideoKeepAlive();
-                return;
-            }
-            if (state.bilibiliKeepAliveTimer) return;
-
-            state.bilibiliKeepAliveTimer = setInterval(() => {
-                if (!shouldKeepBilibiliVideoAlive()) {
-                    stopBilibiliVideoKeepAlive();
-                    return;
-                }
-                if (document.visibilityState === 'visible' && document.hasFocus()) {
-                    nudgeBilibiliPlayerUiHide();
-                }
-            }, 20000);
-        }
-
         function showImageCover() {
-            stopBilibiliVideoKeepAlive();
             el.coverMediaShell.classList.remove('video-mode');
             el.coverVideoFrame.classList.add('hidden');
             if (el.coverVideoFrame.src) {
@@ -2903,11 +2712,7 @@
             const finalUrl = withBilibiliPlayerParams(embedUrl);
             if (el.coverVideoFrame.src !== finalUrl) {
                 el.coverVideoFrame.src = finalUrl;
-            } else {
-                setTimeout(nudgeBilibiliPlayerUiHide, 220);
             }
-            startBilibiliVideoKeepAlive();
-            scheduleBilibiliResumeWave();
         }
 
         function updateCoverArtwork(coverUrl, { preserveVideo = false } = {}) {
@@ -2923,7 +2728,6 @@
         }
 
         function resetVideoCover({ keepImage = true } = {}) {
-            stopBilibiliVideoKeepAlive();
             state.currentVideoCover = null;
             state.videoCoverSongKey = '';
             state.videoCoverFetchKey = '';
@@ -3396,29 +3200,6 @@
             // (Request 1) 移除 el.localSongList
             el.playlistSearch = document.getElementById('playlist-search');
             el.playlistSearch.addEventListener('input', filterPlaylist);
-            el.coverVideoFrame.addEventListener('load', () => {
-                setTimeout(nudgeBilibiliPlayerUiHide, 6000);
-                setTimeout(nudgeBilibiliPlayerUiHide, 10000);
-                startBilibiliVideoKeepAlive();
-                scheduleBilibiliResumeWave();
-            });
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'hidden') {
-                    state.bilibiliLastVisibilityHiddenAt = Date.now();
-                    clearBilibiliResumeTimer();
-                    return;
-                }
-                if (document.visibilityState === 'visible' && shouldKeepBilibiliVideoAlive()) {
-                    state.bilibiliResumeAttemptCount = 0;
-                    scheduleBilibiliResumeWave();
-                }
-            });
-            window.addEventListener('focus', () => {
-                if (shouldKeepBilibiliVideoAlive()) {
-                    state.bilibiliResumeAttemptCount = 0;
-                    scheduleBilibiliResumeWave();
-                }
-            });
 
             const savedLang = localStorage.getItem('aether_lang') || 'zh';
             state.currentLang = savedLang;
